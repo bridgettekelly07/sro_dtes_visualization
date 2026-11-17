@@ -577,7 +577,7 @@ export class District3D {
     this.matMark = new LineMaterial({ color: 0x1f1f1f, linewidth: 2 });
     this.matMarkPath = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.5, dashed: true, dashScale: 1 });
     // base map: a path in the accent red, dashed
-    this.matMarkAccent = new LineMaterial({ color: 0x8e4233, linewidth: 1.8, dashed: true, dashScale: 1 });
+    this.matMarkAccent = new LineMaterial({ color: 0x8e4233, linewidth: 2.6, dashed: true, dashScale: 1 });
     this.matMarkLine = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.6 });
     this.matMarkDot = new LineMaterial({ color: 0x3a3a3a, linewidth: 1.2 });
     // base map: a dotted stem from a building's roof up to its name
@@ -1581,10 +1581,11 @@ export class District3D {
             const r = p.ring.map(([lon, lat]) => [proj.x(lon), proj.y(lat)]);
             if (r.length > 1 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1]) r.pop();
             let b = Infinity;
+            const bases = r.map(([x, z]) => this.yAt(x, z) + 0.2 * u);   // base map: the ground at each corner, for a deck that follows it
             r.forEach(([x, z]) => { b = Math.min(b, this.yAt(x, z)); });
             let t = [];
             if (r.length >= 3) { try { t = THREE.ShapeUtils.triangulateShape(r.map(([x, z]) => new THREE.Vector2(x, z)), []); } catch { t = []; } }
-            pc = { proj, terrain: this.data.terrain, ring: r, base: b + 0.2 * u, tris: t };
+            pc = { proj, terrain: this.data.terrain, ring: r, base: b + 0.2 * u, bases, tris: t };
             this.prismCache.set(p.ring, pc);
           }
           const ring = pc.ring;
@@ -1594,16 +1595,21 @@ export class District3D {
           let mx = 0, mz = 0;
           ring.forEach(([x, z]) => { mx += x / ring.length; mz += z / ring.length; });
           const overWater = !!(m.piles && this.shore && this.shore.inland(mx, mz) <= 0);
-          const base = overWater ? Math.max(pc.base, (m.minBase || 0) * u + 0.3 * u) : pc.base;
+          const base = (overWater ? Math.max(pc.base, (m.minBase || 0) * u + 0.3 * u) : pc.base) + (p.z0 || 0) * u;   // base map: a deck can sit z0 metres up
           const top = base + Math.max(0.05, p.h) * u;
           const n = ring.length;
+          // base map: a part marked `follow` keeps z0 metres above the ground at each corner (a viaduct deck
+          // over sloping ground) instead of one level over the lowest point
+          const lo = (i) => (p.follow ? pc.bases[i] + (p.z0 || 0) * u : base);
+          const hi = (i) => lo(i) + Math.max(0.05, p.h) * u;
           for (let i = 0; i < n; i++) {
-            const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n];
-            tri.push(ax, base, az, bx, base, bz, bx, top, bz, ax, base, az, bx, top, bz, ax, top, az);
-            edge.push(ax, base, az, bx, base, bz, ax, top, az, bx, top, bz, ax, base, az, ax, top, az);
-            if (overWater) edge.push(ax, base, az, ax, this.yAt(ax, az), az);
+            const j = (i + 1) % n, [ax, az] = ring[i], [bx, bz] = ring[j];
+            tri.push(ax, lo(i), az, bx, lo(j), bz, bx, hi(j), bz, ax, lo(i), az, bx, hi(j), bz, ax, hi(i), az);
+            edge.push(ax, lo(i), az, bx, lo(j), bz, ax, hi(i), az, bx, hi(j), bz, ax, lo(i), az, ax, hi(i), az);
+            if (overWater) edge.push(ax, lo(i), az, ax, this.yAt(ax, az), az);
           }
-          pc.tris.forEach(([i, j, k]) => tri.push(ring[i][0], top, ring[i][1], ring[j][0], top, ring[j][1], ring[k][0], top, ring[k][1]));
+          pc.tris.forEach(([i, j, k]) => tri.push(ring[i][0], hi(i), ring[i][1], ring[j][0], hi(j), ring[j][1], ring[k][0], hi(k), ring[k][1]));
+          void top;
           return;
         }
         const a = (p.rot || 0) * Math.PI / 180, cr = Math.cos(a), sr = Math.sin(a), z0 = p.z0 || 0;
@@ -1677,9 +1683,11 @@ export class District3D {
         this.markTops.push({ x, y: top + STEM * 0.9, z, label: site.label });
         return;
       }
+      const R = (site.ring != null ? site.ring : 22) * u;   // base map: a site may ask for a wider ring
+      if (R <= 0.01 * u) { this.markTops.push({ x, y: y + STEM, z, label: site.label }); return; }
       for (let k = 0; k < 48; k++) {
         const a = k / 48 * Math.PI * 2, b = (k + 1) / 48 * Math.PI * 2;
-        const ax = x + Math.cos(a) * RING, az = z + Math.sin(a) * RING, bx = x + Math.cos(b) * RING, bz = z + Math.sin(b) * RING;
+        const ax = x + Math.cos(a) * R, az = z + Math.sin(a) * R, bx = x + Math.cos(b) * R, bz = z + Math.sin(b) * R;
         solid.push(ax, this.yAt(ax, az) + lift, az, bx, this.yAt(bx, bz) + lift, bz);
       }
       solid.push(x, y, z, x, y + STEM, z);

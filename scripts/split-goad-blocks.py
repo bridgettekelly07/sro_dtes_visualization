@@ -8,7 +8,7 @@ footprint (brick, over MIN_AREA) is cut along the parcel lines: the pieces are t
 with each parcel, each simplified to lose the cell-grid's steps. Pieces under MIN_PIECE are dropped.
 
 A joined footprint that a parcel line does not cross is left as it is, and frame buildings are left as
-they are: the atlas draws them standing apart.
+they are: the atlas draws them standing apart. The buildings the story draws whole (KEEP) are not cut.
 
 Parcels: property-parcel-polygons from the City's open data, as fetched by build-goad-years.py into
 its cache folder.
@@ -20,6 +20,10 @@ import os
 import sys
 
 MIN_AREA = 900     # m2: smaller brick footprints are single buildings
+# buildings the story draws whole, left uncut whatever their size: a point inside each
+KEEP = [(-123.10025, 49.28073),   # City Hall of 1898 to 1929, on Westminster Avenue
+        (-123.10469, 49.28123),   # the BC Electric terminal at Hastings and Carrall
+        (-123.11264, 49.28613)]   # the CPR station at the head of Granville
 MIN_PIECE = 30     # m2
 TOL = 1.8          # m: simplification
 
@@ -109,8 +113,15 @@ def main(cache, path):
             xs, ys = [p[0] for p in r], [p[1] for p in r]
             lots.append((r, min(xs), max(xs), min(ys), max(ys)))
     out, split, pieces = [], 0, 0
+    def holds(ring, p):
+        c = False
+        for k in range(len(ring)):
+            (x1, y1), (x2, y2) = ring[k], ring[k - 1]
+            if (y1 > p[1]) != (y2 > p[1]) and p[0] < (x2 - x1) * (p[1] - y1) / (y2 - y1) + x1:
+                c = not c
+        return c
     for ring in goad['brick']:
-        if area(ring) < MIN_AREA:
+        if area(ring) < MIN_AREA or any(holds(ring, p) for p in KEEP):
             out.append(ring)
             continue
         xs, ys = [p[0] for p in ring], [p[1] for p in ring]

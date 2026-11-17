@@ -13,13 +13,14 @@ import { byrnesBlock1889, granvilleBuildings1889 } from './granville1889'
 import landmarks from './landmarks.json'
 import goad1912 from './goad1912.json'
 import { footprintAt } from './district1912'
+import viaducts1972 from './viaducts1972.json'
 
 /** One piece of a building. Distances are metres; x and y are east and north of the site before the group is turned. */
 export type Part =
   | { kind: 'gable' | 'hip'; x: number; y: number; w: number; d: number; eave: number; ridge: number; rot?: number }
   | { kind: 'box'; x: number; y: number; w: number; d: number; h: number; rot?: number; z0?: number; legs?: number; drop?: number; afloat?: boolean }
   /** A building raised straight up from its real footprint: `ring` is [lon, lat] points, `h` the height in metres. x and y are unused. */
-  | { kind: 'prism'; x: number; y: number; ring: [number, number][]; h: number }
+  | { kind: 'prism'; x: number; y: number; ring: [number, number][]; h: number; z0?: number; follow?: boolean }
 
 export interface BuildingModel {
   id: string
@@ -48,6 +49,44 @@ const prisms = (key: keyof typeof landmarks): Part[] =>
 const goadFootprints = (rings: number[][][], h: number): Part[] =>
   rings.map((ring) => ({ kind: 'prism' as const, x: 0, y: 0, ring: ring as [number, number][], h }))
 
+/**
+ * Each viaduct as one continuous deck: a ribbon 15 m wide along its centreline, offset left and right with
+ * mitred corners so the bends are smooth, 1.5 m deep with its underside 8 m up, and a pier every 30 m.
+ */
+function viaductDecks(anchor: [number, number]): Part[] {
+  const kx = 111_320 * Math.cos((anchor[1] * Math.PI) / 180)
+  const ky = 111_200
+  const parts: Part[] = []
+  for (const key of ['georgia', 'dunsmuir'] as const) {
+    const pts = (viaducts1972[key] as number[][]).map(([lon, lat]) => [(lon - anchor[0]) * kx, (lat - anchor[1]) * ky])
+    // the direction at each point: the mean of the stretches either side
+    const dirs = pts.map((_, i) => {
+      const a = pts[Math.max(0, i - 1)]
+      const b = pts[Math.min(pts.length - 1, i + 1)]
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+      return [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
+    })
+    const half = 7.5
+    const left = pts.map((p, i) => [p[0] - dirs[i][1] * half, p[1] + dirs[i][0] * half])
+    const right = pts.map((p, i) => [p[0] + dirs[i][1] * half, p[1] - dirs[i][0] * half])
+    const ring = [...left, ...right.reverse()].map(([x, y]) => [anchor[0] + x / kx, anchor[1] + y / ky] as [number, number])
+    parts.push({ kind: 'prism', x: 0, y: 0, ring, h: 1.5, z0: 8, follow: true })
+    // piers down to the ground every 30 m along the line
+    let carried = 0
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1]
+      const [bx, by] = pts[i]
+      const len = Math.hypot(bx - ax, by - ay)
+      if (!len) continue
+      for (let d = carried; d <= len; d += 30) {
+        parts.push({ kind: 'box', x: ax + ((bx - ax) * d) / len, y: ay + ((by - ay) * d) / len, w: 1.6, d: 1.6, h: 8 })
+        carried = d + 30 - len
+      }
+    }
+  }
+  return parts
+}
+
 export const models: BuildingModel[] = [
   {
     id: 'goad-1912',
@@ -75,6 +114,15 @@ export const models: BuildingModel[] = [
     anchor: [landmarks.woodwards.lon, landmarks.woodwards.lat],
     evidence: `Today's footprints at the corner of Hastings and Abbott, standing in for the store Woodward's established there in 1903. The store was enlarged many times and largely rebuilt in 2010; its 1903 outline has not been traced.`,
     parts: prisms('woodwards'),
+  },
+  {
+    id: 'library-1957',
+    name: 'Central library, 1957',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [landmarks['library-1957'].lon, landmarks['library-1957'].lat],
+    evidence: `Today's footprint at the north-west corner of Burrard and Robson, 750 Burrard Street, on a lot the City's property records date to 1956: the central library that opened in 1957 and served until 1995. Its LiDAR height takes in the storeys added after the library left.`,
+    parts: prisms('library-1957'),
   },
   {
     id: 'cn-station-1919',
@@ -267,6 +315,23 @@ export const models: BuildingModel[] = [
       { kind: 'box', x: 0, y: 12, w: 3, d: 3, h: 7, z0: 11, afloat: true },  // funnels
       { kind: 'box', x: 0, y: -14, w: 3, d: 3, h: 7, z0: 11, afloat: true },
     ],
+  },
+  {
+    id: 'streetcar-1955',
+    name: 'A streetcar',
+    bearing: 0, // set from the way it is travelling
+    basis: 'type',
+    evidence: 'A single car at the length of the BC Electric cars of the 1950s, as a type: no particular car. Drawn larger than life so that it can be seen.',
+    parts: [{ kind: 'box', x: 0, y: 0, w: 2.6, d: 15, h: 3.4 }],
+  },
+  {
+    id: 'viaducts-1972',
+    name: 'The Georgia and Dunsmuir viaducts, 1972',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [-123.1035, 49.2774],
+    evidence: "Each viaduct as one deck along its centreline from the City's street data, which keeps the 1972 alignment: 15 m wide, 1.5 m deep, kept 8 m above the ground beneath it, on piers every 30 m. The real deck ran at its own grade, meeting the ground at each end; that profile is not traced.",
+    parts: viaductDecks([-123.1035, 49.2774]),
   },
   {
     id: 'deighton-canoe',

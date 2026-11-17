@@ -16,6 +16,8 @@ export interface Site {
   basis: string
   /** Marked without a ring: a dotted stem rises from this many metres up (the roof) to the name. */
   stem?: number
+  /** The ring's radius in metres, where the mark is a ring; 22 m if left out. */
+  ring?: number
 }
 
 /** An archival photograph shown at a stop. The file lives in public/images/. */
@@ -78,7 +80,9 @@ export interface Stop {
    * Buildings that rise from the ground once the stop has arrived, after any burn has spread:
    * each a site id and model id as in `models`, in the order they rise.
    */
-  rises?: [string, string][]
+  rises?: [string, string, string?][]
+  /** The card's `models` as they stand once the rise is done: a building can change colour when another is up. */
+  risesThen?: [string, string, string?][]
   /**
    * Buildings that come up as a running year, shown large over the map, passes the year each was built.
    * Those built before `from` stand from the start; those after `to` or with no year are left out. With
@@ -111,6 +115,22 @@ export interface Stop {
   edges?: { width?: number; colour?: string }
   /** The coloured buildings of a standing growth take their colour one by one, nearest `from` first, over `ms`. */
   highlight?: { from: [number, number]; ms?: number; delay?: number }
+  /**
+   * The site marks in a sequence: each step's sites replace the last's at `after` ms once the camera has
+   * settled, the old rings closing and the new ones opening.
+   */
+  marksSequence?: { sites: string[]; after: number }[]
+  /**
+   * A clearance: `old` stand from the start (in `fill`), sink into the ground from `at` ms after the camera
+   * settles over `ms`, and then `then` rise in their place over `ms`.
+   */
+  clear?: { old: GrowthBuilding[]; then: GrowthBuilding[]; fill?: string; at?: number; ms?: number }
+  /**
+   * Structures laid along their length once the camera has settled, like a railway: a model whose parts
+   * are a deck (a prism whose ring runs out along one side and back along the other) followed by its
+   * piers in order along it. Each is laid in turn, over `ms`.
+   */
+  lay?: { site: string; model: string; fill?: string; ms?: number }[]
   /** Hold the site marks back until the growth count has finished. */
   marksAfterGrowth?: boolean
   /** Buildings drawn faintly, as context: the rest of the city, where it is a stand-in rather than a record. */
@@ -129,6 +149,8 @@ export interface Stop {
     scale?: number
     /** A fill colour, so a small thing reads at a distance. */
     fill?: string
+    /** The card's `models` as they stand once this has arrived: a building can change colour at its coming. */
+    then?: [string, string, string?][]
   }[]
   /**
    * Faint lines and names from a period map, laid on the ground to give the place its surroundings.
@@ -182,6 +204,8 @@ export interface Route {
   solid?: boolean
   /** Drawn in this colour instead of the map's ink. */
   colour?: string
+  /** Once drawn in, erased again this many ms later: a line that was proposed and never built. */
+  undrawAfter?: number
   /** Drawn as a railway: two rails with ties across them, laid from the first point to the last when `drawIn`. */
   track?: boolean
   /** True once a source confirms the line ran here. */
