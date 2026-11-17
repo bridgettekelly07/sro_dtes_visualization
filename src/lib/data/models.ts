@@ -14,6 +14,8 @@ import landmarks from './landmarks.json'
 import goad1912 from './goad1912.json'
 import { footprintAt } from './district1912'
 import viaducts1972 from './viaducts1972.json'
+import expoParts from './expoParts.json'
+import expo1986 from './expo1986.json'
 
 /** One piece of a building. Distances are metres; x and y are east and north of the site before the group is turned. */
 export type Part =
@@ -21,6 +23,8 @@ export type Part =
   | { kind: 'box'; x: number; y: number; w: number; d: number; h: number; rot?: number; z0?: number; legs?: number; drop?: number; afloat?: boolean }
   /** A building raised straight up from its real footprint: `ring` is [lon, lat] points, `h` the height in metres. x and y are unused. */
   | { kind: 'prism'; x: number; y: number; ring: [number, number][]; h: number; z0?: number; follow?: boolean }
+  /** A curved form as a mesh, in metres from (x, y), z up from the ground: its triangles, and the lines drawn in ink. */
+  | { kind: 'solid'; x: number; y: number; verts: [number, number, number][]; tris: [number, number, number][]; lines: [number, number][] }
 
 export interface BuildingModel {
   id: string
@@ -45,20 +49,159 @@ export interface BuildingModel {
 const prisms = (key: keyof typeof landmarks): Part[] =>
   landmarks[key].parts.map((p) => ({ kind: 'prism' as const, x: 0, y: 0, ring: p.ring as [number, number][], h: p.h }))
 
+type Solid = Extract<Part, { kind: 'solid' }>
+/** A geodesic sphere: an icosahedron split `n` times and pushed out to radius `r`, centred `z` up. Every edge is drawn, as the struts of a geodesic dome are. */
+function geodesic(r: number, z: number, n: number, x = 0, y = 0): Solid {
+  const t = (1 + Math.sqrt(5)) / 2
+  let v: number[][] = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]]
+  let f: number[][] = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8], [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]]
+  const norm = (p: number[]) => { const l = Math.hypot(p[0], p[1], p[2]); return [p[0] / l, p[1] / l, p[2] / l] }
+  v = v.map(norm)
+  for (let k = 0; k < n; k++) {
+    const mid = new Map<string, number>()
+    const m = (a: number, b: number) => {
+      const key = a < b ? `${a}:${b}` : `${b}:${a}`
+      if (!mid.has(key)) { v.push(norm([(v[a][0] + v[b][0]) / 2, (v[a][1] + v[b][1]) / 2, (v[a][2] + v[b][2]) / 2])); mid.set(key, v.length - 1) }
+      return mid.get(key) as number
+    }
+    f = f.flatMap(([a, b, c]) => { const ab = m(a, b), bc = m(b, c), ca = m(c, a); return [[a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]] })
+  }
+  const edges = new Set<string>()
+  for (const [a, b, c] of f) for (const [p, q] of [[a, b], [b, c], [c, a]]) edges.add(p < q ? `${p}:${q}` : `${q}:${p}`)
+  return {
+    kind: 'solid', x, y,
+    verts: v.map(([a, b, c]) => [a * r, b * r, z + c * r] as [number, number, number]),
+    tris: f as [number, number, number][],
+    lines: [...edges].map((e) => e.split(':').map(Number) as [number, number]),
+  }
+}
+/**
+ * A sail: a tent of `n` sides, its base of radius `r` at `z0`, its peak `h` above at (x, y), the sides
+ * drawn in so the fabric sweeps up to the peak, with a mast standing 3 m above it.
+ */
+function sail(x: number, y: number, r: number, z0: number, h: number, n = 8): Solid {
+  const verts: [number, number, number][] = [[0, 0, z0 + h], [0, 0, z0 + h + 3]]
+  // three rings: the base, and two drawn in, so each face curves up like stretched fabric
+  const rings = [[1, 0], [0.45, 0.4], [0.18, 0.75]]
+  for (const [k, t] of rings) for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; verts.push([Math.cos(a) * r * k, Math.sin(a) * r * k, z0 + h * t]) }
+  const at = (ring: number, i: number) => 2 + ring * n + (i % n)
+  const tris: [number, number, number][] = []
+  const lines: [number, number][] = [[0, 1]]
+  for (let i = 0; i < n; i++) {
+    for (let ring = 0; ring < 2; ring++) {
+      tris.push([at(ring, i), at(ring, i + 1), at(ring + 1, i + 1)], [at(ring, i), at(ring + 1, i + 1), at(ring + 1, i)])
+      lines.push([at(ring, i), at(ring + 1, i)])
+    }
+    tris.push([at(2, i), at(2, i + 1), 0])
+    lines.push([at(2, i), 0], [at(0, i), at(0, i + 1)])
+  }
+  return { kind: 'solid', x, y, verts, tris, lines }
+}
+/** A dome over a footprint: the ring drawn in to its middle in `bands` steps on a quarter-ellipse rising `h` from `z0`; the ink is a few rings and a radial line every `every` corners. */
+function domeOver(ring: [number, number][], anchor: [number, number], z0: number, h: number, bands = 7, every = 4): Solid {
+  const kx = 111_320 * Math.cos((anchor[1] * Math.PI) / 180)
+  const ky = 111_200
+  const pts = (ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1] ? ring.slice(0, -1) : ring).map(([lon, lat]) => [(lon - anchor[0]) * kx, (lat - anchor[1]) * ky])
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length
+  const cy = pts.reduce((a, p) => a + p[1], 0) / pts.length
+  const n = pts.length
+  const verts: [number, number, number][] = []
+  for (let b = 0; b < bands; b++) {
+    const t = b / bands
+    const k = Math.cos((t * Math.PI) / 2)
+    const z = z0 + h * Math.sin((t * Math.PI) / 2)
+    for (const [x, y] of pts) verts.push([cx + (x - cx) * k, cy + (y - cy) * k, z])
+  }
+  verts.push([cx, cy, z0 + h])
+  const top = verts.length - 1
+  const tris: [number, number, number][] = []
+  const lines: [number, number][] = []
+  for (let b = 0; b < bands - 1; b++)
+    for (let i = 0; i < n; i++) {
+      const a = b * n + i, c = b * n + ((i + 1) % n), d = (b + 1) * n + i, e = (b + 1) * n + ((i + 1) % n)
+      tris.push([a, c, e], [a, e, d])
+      if (b % 2 === 0) lines.push([a, c])
+      if (i % every === 0) lines.push([a, d])
+    }
+  for (let i = 0; i < n; i++) {
+    const a = (bands - 1) * n + i, c = (bands - 1) * n + ((i + 1) % n)
+    tris.push([a, c, top])
+    if (i % every === 0) lines.push([a, top])
+  }
+  return { kind: 'solid', x: 0, y: 0, verts, tris, lines }
+}
+/** A footprint's long axis, as a unit vector in metres east and north, and its length. */
+function longAxis(ring: [number, number][], anchor: [number, number]) {
+  const kx = 111_320 * Math.cos((anchor[1] * Math.PI) / 180)
+  const pts = ring.map(([lon, lat]) => [(lon - anchor[0]) * kx, (lat - anchor[1]) * 111_200])
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length
+  const cy = pts.reduce((a, p) => a + p[1], 0) / pts.length
+  let sxx = 0, syy = 0, sxy = 0
+  for (const [x, y] of pts) { sxx += (x - cx) ** 2; syy += (y - cy) ** 2; sxy += (x - cx) * (y - cy) }
+  const a = 0.5 * Math.atan2(2 * sxy, sxx - syy)
+  const u = [Math.cos(a), Math.sin(a)]
+  const along = pts.map(([x, y]) => (x - cx) * u[0] + (y - cy) * u[1])
+  return { u, c: [cx, cy], len: Math.max(...along) - Math.min(...along) }
+}
+const anchorOf = (key: 'science-world' | 'canada-place' | 'bc-place'): [number, number] => [landmarks[key].lon, landmarks[key].lat]
+const footprintOf = (key: 'science-world' | 'canada-place' | 'bc-place') => landmarks[key].parts[0].ring as [number, number][]
+
+/**
+ * One of the Expo landmarks from its 2009 roof parts: each part a prism at its height, except the parts
+ * that are the curved forms. Science World's tallest part is its sphere; BC Place's tallest is its dome;
+ * Canada Place's pitched parts between 33 and 50 m are its sails.
+ */
+function expoBuilding(key: 'science-world' | 'canada-place' | 'bc-place'): Part[] {
+  const anchor = anchorOf(key)
+  const kx = 111_320 * Math.cos((anchor[1] * Math.PI) / 180)
+  const ky = 111_200
+  const parts = (expoParts as unknown as Record<string, { ring: [number, number][]; h: number; roof: string }[]>)[key]
+  const local = (ring: [number, number][]) => ring.map(([lon, lat]) => [(lon - anchor[0]) * kx, (lat - anchor[1]) * ky])
+  const centre = (pts: number[][]) => [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length]
+  const area = (pts: number[][]) => Math.abs(pts.reduce((a, p, i) => { const q = pts[(i + 1) % pts.length]; return a + p[0] * q[1] - q[0] * p[1] }, 0)) / 2
+  const tallest = Math.max(...parts.map((p) => p.h))
+  const out: Part[] = []
+  for (const p of parts) {
+    const pts = local(p.ring)
+    const [cx, cy] = centre(pts)
+    if (key === 'science-world' && p.h === tallest) {
+      // the sphere: centred on its part, as wide as the part, its top at the part's height
+      const r = pts.reduce((a, q) => a + Math.hypot(q[0] - cx, q[1] - cy), 0) / pts.length
+      out.push(geodesic(r, p.h - r, 2, cx, cy))
+      continue
+    }
+    if (key === 'bc-place' && p.h === tallest) {
+      out.push({ kind: 'prism', x: 0, y: 0, ring: p.ring, h: 30 })
+      out.push(domeOver(p.ring, anchor, 30, p.h - 30))
+      continue
+    }
+    if (key === 'canada-place' && p.roof === 'Pitched' && p.h >= 33 && p.h <= 50 && area(pts) >= 200) {
+      // a sail: a tent over its part, from the roof below it to the part's height
+      const r = Math.sqrt(area(pts) / Math.PI)
+      out.push({ kind: 'prism', x: 0, y: 0, ring: p.ring, h: 20 })
+      out.push(sail(cx, cy, r, 20, p.h - 20 - 3))
+      continue
+    }
+    out.push({ kind: 'prism', x: 0, y: 0, ring: p.ring, h: p.h })
+  }
+  return out
+}
+
 // Every building of 1912, raised to an assumed height: brick at three storeys, wood at two.
 const goadFootprints = (rings: number[][][], h: number): Part[] =>
   rings.map((ring) => ({ kind: 'prism' as const, x: 0, y: 0, ring: ring as [number, number][], h }))
 
 /**
- * Each viaduct as one continuous deck: a ribbon 15 m wide along its centreline, offset left and right with
- * mitred corners so the bends are smooth, 1.5 m deep with its underside 8 m up, and a pier every 30 m.
+ * Decks along centrelines: each line a ribbon `half` metres either side of it, offset left and right with
+ * mitred corners so the bends are smooth, `depth` deep with its underside `z0` above the ground beneath it,
+ * and a pier every `every` metres. Each deck is a prism followed by its piers, so a card can lay it in.
  */
-function viaductDecks(anchor: [number, number]): Part[] {
+function decksAlong(lines: number[][][], anchor: [number, number], half: number, depth: number, z0: number, every: number, pier: number): Part[] {
   const kx = 111_320 * Math.cos((anchor[1] * Math.PI) / 180)
   const ky = 111_200
   const parts: Part[] = []
-  for (const key of ['georgia', 'dunsmuir'] as const) {
-    const pts = (viaducts1972[key] as number[][]).map(([lon, lat]) => [(lon - anchor[0]) * kx, (lat - anchor[1]) * ky])
+  for (const line of lines) {
+    const pts = line.map(([lon, lat]) => [(lon - anchor[0]) * kx, (lat - anchor[1]) * ky])
     // the direction at each point: the mean of the stretches either side
     const dirs = pts.map((_, i) => {
       const a = pts[Math.max(0, i - 1)]
@@ -66,26 +209,67 @@ function viaductDecks(anchor: [number, number]): Part[] {
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
       return [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
     })
-    const half = 7.5
     const left = pts.map((p, i) => [p[0] - dirs[i][1] * half, p[1] + dirs[i][0] * half])
     const right = pts.map((p, i) => [p[0] + dirs[i][1] * half, p[1] - dirs[i][0] * half])
     const ring = [...left, ...right.reverse()].map(([x, y]) => [anchor[0] + x / kx, anchor[1] + y / ky] as [number, number])
-    parts.push({ kind: 'prism', x: 0, y: 0, ring, h: 1.5, z0: 8, follow: true })
-    // piers down to the ground every 30 m along the line
-    let carried = 0
+    parts.push({ kind: 'prism', x: 0, y: 0, ring, h: depth, z0, follow: true })
+    // piers down to the ground along the line
+    let carried = every / 2
     for (let i = 1; i < pts.length; i++) {
       const [ax, ay] = pts[i - 1]
       const [bx, by] = pts[i]
       const len = Math.hypot(bx - ax, by - ay)
       if (!len) continue
-      for (let d = carried; d <= len; d += 30) {
-        parts.push({ kind: 'box', x: ax + ((bx - ax) * d) / len, y: ay + ((by - ay) * d) / len, w: 1.6, d: 1.6, h: 8 })
-        carried = d + 30 - len
-      }
+      let d = carried
+      for (; d <= len; d += every) parts.push({ kind: 'box', x: ax + ((bx - ax) * d) / len, y: ay + ((by - ay) * d) / len, w: pier, d: pier, h: z0 })
+      carried = d - len
     }
   }
   return parts
 }
+
+/** Each viaduct as one continuous deck: 15 m wide, 1.5 m deep, its underside 8 m up, a pier every 30 m. */
+const viaductDecks = (anchor: [number, number]): Part[] =>
+  decksAlong([viaducts1972.georgia as number[][], viaducts1972.dunsmuir as number[][]], anchor, 7.5, 1.5, 8, 30, 1.6)
+
+/**
+ * The SkyTrain's elevated line of 1985 as one centreline, from OpenHistoricalMap's track: the ways above
+ * ground from just east of Stadium station, past Main Street station and along Terminal Avenue to the top of
+ * the Grandview cut (west of there the line runs in the Dunsmuir tunnel and the open cut at Stadium, east of
+ * there in the cut). OpenHistoricalMap draws each track as its own way; starting from the westmost, each way
+ * is joined to the next whose start meets its end, so the line follows one track all the way and has no jog.
+ */
+export const guidewayLine: [number, number][] = (() => {
+  const W = -123.1085, E = -123.069, S = 49.2618
+  const kx = 111_320 * Math.cos((49.27 * Math.PI) / 180)
+  const gap = (a: number[], b: number[]) => Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 111_200)
+  const ways = (expo1986.skytrain as { line: [number, number][]; tunnel: boolean }[])
+    .filter((w) => !w.tunnel)
+    .map((w) => (w.line[0][0] > w.line[w.line.length - 1][0] ? [...w.line].reverse() : w.line))
+    .map((l) => l.filter((p) => p[0] >= W && p[0] <= E && p[1] >= S))
+    .filter((l) => l.length >= 2)
+    .sort((x, y) => x[0][0] - y[0][0])
+  if (!ways.length) return []
+  const line = ways[0].slice()
+  const used = new Set([0])
+  for (;;) {
+    const last = line[line.length - 1]
+    let best = -1
+    let near = 8
+    ways.forEach((w, i) => {
+      if (used.has(i)) return
+      const g = gap(w[0], last)
+      if (g < near) [best, near] = [i, g]
+    })
+    if (best < 0) break
+    used.add(best)
+    line.push(...ways[best].slice(1))
+  }
+  return line
+})()
+const guidewayAnchor: [number, number] = [-123.1000, 49.2730]
+/** The guideway: one deck 9 m wide for the two tracks along the line, its underside 7 m up, on piers every 30 m. */
+const guideway = (): Part[] => decksAlong([guidewayLine], guidewayAnchor, 4.5, 1.8, 7, 30, 2)
 
 export const models: BuildingModel[] = [
   {
@@ -123,6 +307,33 @@ export const models: BuildingModel[] = [
     anchor: [landmarks['library-1957'].lon, landmarks['library-1957'].lat],
     evidence: `Today's footprint at the north-west corner of Burrard and Robson, 750 Burrard Street, on a lot the City's property records date to 1956: the central library that opened in 1957 and served until 1995. Its LiDAR height takes in the storeys added after the library left.`,
     parts: prisms('library-1957'),
+  },
+  {
+    id: 'science-world-1986',
+    name: 'Expo Centre, 1986 (Science World)',
+    bearing: 0,
+    basis: 'plan',
+    anchor: anchorOf('science-world'),
+    evidence: `The building's parts from the City's 2009 footprints, each at its own LiDAR height: the low wings and the pedestal raised as they are, and on the sphere's part a geodesic sphere centred on it, its radius the part's, its top at the part's height of 45 m. Every strut is drawn.`,
+    parts: expoBuilding('science-world'),
+  },
+  {
+    id: 'canada-place-1986',
+    name: 'Canada Place, the Canada Pavilion of 1986',
+    bearing: 0,
+    basis: 'plan',
+    evidence: `The building's parts from the City's 2009 footprints, each at its own LiDAR height. The pitched parts between 33 and 50 m, the five large and four small roof parts down the pier, are the sails: each drawn as a tent on a mast over its part, rising from the roof to the part's height. The rest, the deck building and, at the shore end, the hotel and the office tower, are raised as they are. The footprints take in the convention centre's later additions.`,
+    anchor: anchorOf('canada-place'),
+    parts: expoBuilding('canada-place'),
+  },
+  {
+    id: 'bc-place-1986',
+    name: 'BC Place stadium, as it was in 1986',
+    bearing: 0,
+    basis: 'plan',
+    evidence: `The building's parts from the City's 2009 footprints, each at its own LiDAR height. The roof part is drawn as a dome over the oval, rising from the bowl at 30 m to the part's height of 63 m: the air-supported fabric roof of 1983, which the 2009 LiDAR still records, before the masts and retractable roof of 2011.`,
+    anchor: anchorOf('bc-place'),
+    parts: expoBuilding('bc-place'),
   },
   {
     id: 'cn-station-1919',
@@ -332,6 +543,23 @@ export const models: BuildingModel[] = [
     anchor: [-123.1035, 49.2774],
     evidence: "Each viaduct as one deck along its centreline from the City's street data, which keeps the 1972 alignment: 15 m wide, 1.5 m deep, kept 8 m above the ground beneath it, on piers every 30 m. The real deck ran at its own grade, meeting the ground at each end; that profile is not traced.",
     parts: viaductDecks([-123.1035, 49.2774]),
+  },
+  {
+    id: 'skytrain-1985',
+    name: 'The SkyTrain guideway, 1985',
+    bearing: 0,
+    basis: 'plan',
+    anchor: guidewayAnchor,
+    evidence: "The elevated stretch of the first line, on OpenHistoricalMap's track dated 11 December 1985, from just east of Stadium station past Main Street station and along Terminal Avenue to the Grandview cut: one deck 9 m wide for the two tracks, 1.8 m deep, its underside kept 7 m above the ground beneath it, on piers every 30 m. Its real height varies along the line and is not traced; which stretches stand on the guideway and which run at grade is read from the line's course, not from a survey.",
+    parts: guideway(),
+  },
+  {
+    id: 'skytrain-car-1985',
+    name: 'A SkyTrain',
+    bearing: 0, // set from the way it is travelling
+    basis: 'type',
+    evidence: "A four-car train of the first line's Mark I cars, each about 12.7 m long and 2.5 m wide, as a type: no particular train. It rides on the deck of the modelled guideway, 8.8 m up.",
+    parts: [-19.2, -6.4, 6.4, 19.2].map((y) => ({ kind: 'box' as const, x: 0, y, w: 2.5, d: 12.2, h: 3.2, z0: 8.8 })),
   },
   {
     id: 'deighton-canoe',

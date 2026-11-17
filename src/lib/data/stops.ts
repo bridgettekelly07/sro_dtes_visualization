@@ -101,6 +101,8 @@ export interface Stop {
   }
   /** Whose shoreline the map shows at this card: the 1880s (the default), 1912 or after 1917. */
   land?: LandTime
+  /** Model the False Creek bridges (Granville, Burrard, Cambie) on the bare land, from today's centrelines. */
+  bridges?: boolean
   /** Hold back the annotation's subheadings and leaders until the buildings in `rises` are up. */
   labelsAfterRise?: boolean
   /** Buildings standing as the stop opens that a burn takes down as it reaches them, as in `models`. */
@@ -124,13 +126,21 @@ export interface Stop {
    * A clearance: `old` stand from the start (in `fill`), sink into the ground from `at` ms after the camera
    * settles over `ms`, and then `then` rise in their place over `ms`.
    */
-  clear?: { old: GrowthBuilding[]; then: GrowthBuilding[]; fill?: string; at?: number; ms?: number }
+  /** `pick`: when given, the old buildings stand faint until then (ms), and only then are picked out in `fill`. */
+  clear?: { old: GrowthBuilding[]; then: GrowthBuilding[]; fill?: string; at?: number; ms?: number; pick?: number }
   /**
    * Structures laid along their length once the camera has settled, like a railway: a model whose parts
    * are a deck (a prism whose ring runs out along one side and back along the other) followed by its
    * piers in order along it. Each is laid in turn, over `ms`.
    */
   lay?: { site: string; model: string; fill?: string; ms?: number }[]
+  /** A figure shown large over the map once the camera has settled, with what it counts beneath it. */
+  stat?: { value: string; label: string; after?: number }
+  /**
+   * People leaving: `count` small figures, each starting at one of `from` (chosen in proportion to `weight`),
+   * walk out `reach` metres in a direction away from `away` over `ms`, and go.
+   */
+  scatter?: { from: { lon: number; lat: number; weight: number }[]; count: number; away: [number, number]; reach: [number, number]; ms?: number; delay?: number; fill?: string }
   /** Hold the site marks back until the growth count has finished. */
   marksAfterGrowth?: boolean
   /** Buildings drawn faintly, as context: the rest of the city, where it is a stand-in rather than a record. */
@@ -146,6 +156,10 @@ export interface Stop {
     /** How long the journey takes; along a route, `loop` starts it again at the end. */
     ms?: number
     loop?: boolean
+    /** Along a route: run it from its last point to its first. */
+    reverse?: boolean
+    /** Along a route: how long after the card opens it sets off, in ms (by default once the routes are drawn in). */
+    after?: number
     scale?: number
     /** A fill colour, so a small thing reads at a distance. */
     fill?: string
@@ -156,7 +170,7 @@ export interface Stop {
    * Faint lines and names from a period map, laid on the ground to give the place its surroundings.
    * `note` says which map, of what date, and how it was put on the ground; it is shown in the card.
    */
-  context?: { lines: [number, number][][]; minor?: [number, number][][]; burnArea?: [number, number][]; burnFrom?: [number, number]; /** Where the streets draw themselves in from, nearest first; left out, they are simply there. */ streetsFrom?: [number, number]; /** Parcel outlines, drawn as the lightest lines. */ parcels?: number[][][]; /** Boundaries drawn as solid ink lines on the ground, such as a neighbourhood's. */ outlines?: number[][][]; /** Street edges, already cut at the crossings into block outlines. */ streets?: number[][][]; /** How the streets are drawn, where the faint default is too light. */ streetStyle?: { width?: number; colour?: string; opacity?: number }; names: { text: string; along: [number, number][] }[]; note: string; sourceId: string }
+  context?: { lines: [number, number][][]; minor?: [number, number][][]; burnArea?: [number, number][]; burnFrom?: [number, number]; /** Where the streets draw themselves in from, nearest first; left out, they are simply there. */ streetsFrom?: [number, number]; /** Parcel outlines, drawn as the lightest lines. */ parcels?: number[][][]; /** Boundaries drawn as solid ink lines on the ground, such as a neighbourhood's. */ outlines?: number[][][]; /** Major roads and bridges, drawn as heavier solid lines. */ roads?: number[][][]; /** Street edges, already cut at the crossings into block outlines. */ streets?: number[][][]; /** Street centrelines to fill in white on the ground, each about 20 m wide (a chain). */ streetFill?: number[][][]; /** How the streets are drawn, where the faint default is too light. */ streetStyle?: { width?: number; colour?: string; opacity?: number }; names: { text: string; along: [number, number][] }[]; note: string; sourceId: string }
   /** Longer dashed lines along a route, by id. One marked `drawIn` is drawn from its first point to its last as the stop arrives. */
   routes?: string[]
   /** The event in chapters.ts this stop tells, for its sources. */
@@ -165,7 +179,7 @@ export interface Stop {
   sourceId?: string
 }
 
-export type LandTime = '1880s' | '1887' | '1900' | '1912' | '1917'
+export type LandTime = '1880s' | '1887' | '1900' | '1912' | '1917' | '1973' | '1986' | 'today'
 
 export interface GrowthBuilding {
   name: string

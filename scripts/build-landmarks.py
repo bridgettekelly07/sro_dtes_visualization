@@ -28,6 +28,9 @@ PICK = {
     'bcer': {'name': 'BC Electric Railway terminal', 'rings': [4675], 'h': 24},
     'cn-station': {'name': 'Canadian Northern station', 'rings': [4430]},
     'library-1957': {'name': 'Central library, 1957', 'rings': [2387]},
+    'science-world': {'name': 'Expo Centre (Science World), 1986', 'rings': [4760]},
+    'canada-place': {'name': 'Canada Place, the Canada Pavilion, 1986', 'rings': [861]},
+    'bc-place': {'name': 'BC Place stadium, 1983', 'rings': [568]},
 }
 
 d = json.load(open('public/data/district/footprints.json'))

@@ -863,6 +863,23 @@ export const sources = [
     url: 'https://www.thecanadianencyclopedia.ca/en/article/hogans-alley',
   },
   {
+    id: 'tce-expo-86',
+    title: 'Expo 86',
+    author: 'The Canadian Encyclopedia',
+    year: 'n.d.',
+    kind: 'scholarship',
+    use: 'The fair\'s grounds: 67 hectares along the north and east shores of False Creek, and the Canada Pavilion off the main site.',
+    url: 'https://www.thecanadianencyclopedia.ca/en/article/expo-86',
+  },
+  {
+    id: 'vhf-carnegie',
+    title: 'Carnegie Centre',
+    author: 'Vancouver Heritage Foundation, Places That Matter',
+    year: 'n.d.',
+    kind: 'community',
+    use: 'The Carnegie\'s reopening as a community centre in 1980. The exact page is still to be located and cited.',
+  },
+  {
     id: 'nikkei-museum',
     title: 'Nikkei National Museum collections and Landscapes of Injustice project',
     author: 'Nikkei National Museum; University of Victoria',

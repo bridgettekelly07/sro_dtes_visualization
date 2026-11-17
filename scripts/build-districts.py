@@ -70,6 +70,9 @@ def main(out):
     data = {
         # Hastings Street's own line, Burrard to the east edge, for the streetcar and the lettering
         'hastings': street_line('W HASTINGS ST', 'E HASTINGS ST'),
+        # chapter 5: Pacific and Expo boulevards, today's road along the north shore of False Creek, the
+        # inland edge of the Expo 86 grounds as near as the street data gives it
+        'expoEdge': street_line('PACIFIC BOULEVARD', 'EXPO BOULEVARD'),
         'source': "Outlines on today's street centrelines (City of Vancouver Open Data), by the streets the accounts give for each neighbourhood. Made by scripts/build-districts.py.",
         'chinatown': ring('CARRALL ST', 'GORE AV', 'E PENDER ST', 'E GEORGIA ST'),
         'paueruGai': ring('MAIN ST', 'JACKSON AV', 'ALEXANDER ST', 'E CORDOVA ST'),

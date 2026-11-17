@@ -45,6 +45,7 @@
   // today's water's edge; the water itself is now cut to that shoreline instead (see below).
   const oldShore: number[][][] = []
   let todayShore: number[][][] = []
+  const noStreets: number[][][] = []
   let thenShore: number[][][] = []
   // land-and-water masks by time: the 1880s one is loaded with the map, the others after
   const lands: Partial<Record<LandTime, unknown>> = {}
@@ -70,10 +71,11 @@
       // city has since filled it in. The heights stay as they are; filled ground is drawn at sea level.
       try {
         const response = await fetch(`${import.meta.env.BASE_URL}data/district/land-1880s.json`)
+        lands.today = terrain.land   // today's mask, kept for the cards of the late 1980s on
         terrain = { ...terrain, land: await response.json() }
         lands['1880s'] = terrain.land
         // the shorelines of later times, swapped in by the cards that need them
-        for (const key of ['1887', '1900', '1912', '1917'] as const) {
+        for (const key of ['1887', '1900', '1912', '1917', '1973', '1986'] as const) {
           fetch(`${import.meta.env.BASE_URL}data/district/land-${key}.json`)
             .then((r) => r.json())
             .then((m) => {
@@ -101,12 +103,14 @@
   const ready = $derived(!!(data && proj && data.surveyed.length && data.foot))
   const colourOf = () => hexOf(css('--m3-bldg'))
 
-  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][], accent?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
+  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][], accent?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; bridges: (on: boolean) => void; dots: (list: { lon: number; lat: number; r: number }[]) => void; streetFill: (lines: number[][][], w?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
   let mapReady = $state(false)
   let fail = $state('')
   let active = $state(0)
   // the year a stop's growth has reached, shown large over the map while it runs
   let yearShown = $state<number | null>(null)
+  // a card's figure, shown large once the camera has settled
+  let statShown = $state<{ value: string; label: string } | null>(null)
 
   const siteById = $derived(new Map(story.flatMap((c) => c.sites).map((s) => [s.id, s])))
   const event = (id?: string) => chapters.flatMap((c) => c.events).find((e) => e.id === id)
@@ -166,6 +170,9 @@
     // a change of shore between cards slides in as the camera flies
     if (landNow) mapNow.land(landNow, first ? 0 : 1600)
     mapNow.edges(stop.edges)
+    mapNow.bridges(!!stop.bridges)
+    mapNow.dots([])
+    mapNow.streetFill(stop.context?.streetFill ?? noStreets)
     const sites = stop.sites.map((id) => siteById.get(id)).filter((s): s is Site => !!s)
     const pairs = (stop.paths ?? []).map((pair) =>
       pair.map((id) => siteById.get(id)).filter((s): s is Site => !!s).map((s) => [s.lon, s.lat]),
@@ -192,6 +199,8 @@
     const context: { lines: [number, number][][]; dash?: [number, number]; width: number; colour: string; opacity: number }[] = stop.context ? [{ lines: stop.context.lines, dash: [mPerPxOf(layout, stop) * 3, mPerPxOf(layout, stop) * 6] as [number, number], width: 0.8, colour: '#555555', opacity: 0.8 }, { lines: stop.context.minor ?? [], dash: [mPerPxOf(layout, stop) * 1, mPerPxOf(layout, stop) * 4] as [number, number], width: 0.7, colour: '#666666', opacity: 0.6 }] : []
     // boundaries, as solid ink
     if (stop.context?.outlines?.length) context.push({ lines: stop.context.outlines as [number, number][][], width: 1.4, colour: '#1f1f1f', opacity: 0.95 })
+    // major roads and bridges, as heavier grey lines
+    if (stop.context?.roads?.length) context.push({ lines: stop.context.roads as [number, number][][], width: 1.8, colour: '#5a5a5a', opacity: 0.9 })
     // Burned ground: a charcoal smudge. Where the stop says where the fire began, it starts with
     // nothing burned and spreads out from there once the camera has settled.
     const burnArea = stop.context?.burnArea
@@ -291,6 +300,8 @@
       if (l.text === OLD_SHORE && stop.shoreLabel) return { ...l, lines: shoreLines[stop.land ?? '1880s'] ?? l.lines, text: stop.shoreLabel.text, near: stop.shoreLabel.near, size: mPerPx * 20, offset: mPerPx * 8, colour: '#3a3a3a', tracking: 0.14 }
       // the 1880s shore keeps its name in 1887: only the railway's roadbed has been added to it
       if (l.text === OLD_SHORE && !['1880s', '1887'].includes(stop.land ?? '1880s')) return { ...l, text: '' }
+      // once the shore is today's, the dashed line stays but needs no name
+      if (l.text === 'SHORELINE TODAY' && stop.land === 'today') return { ...l, text: '' }
       if (l.text !== OLD_SHORE) return layout ? { ...l, size: Math.min(l.size, mPerPx * 13), offset: Math.min(l.offset, mPerPx * 6.5) } : l
       // The 1880s shoreline's name: small and grey, and begun just outside an annotation's rings so it stays in frame.
       const a = stop.annotation
@@ -347,6 +358,7 @@
       parts: m.parts.map((p) =>
         p.kind === 'box' ? { ...p, h: Math.max(0.05, p.h * k), z0: (p.z0 ?? 0) * k }
         : p.kind === 'prism' ? { ...p, h: Math.max(0.05, p.h * k) }
+        : p.kind === 'solid' ? { ...p, verts: p.verts.map(([x, y, z]) => [x, y, z * Math.max(0.01, k)] as [number, number, number]) }
         : { ...p, eave: Math.max(0.05, p.eave * k), ridge: Math.max(0.06, p.ridge * k) },
       ),
     })
@@ -397,7 +409,7 @@
     // Anything that travels in: placed at its start, then moved to its end once the camera has settled.
     const scaledParts = (model: (typeof buildingModels)[number], k: number) =>
       model.parts.map((part) => {
-        if (part.kind === 'prism') return part
+        if (part.kind === 'prism' || part.kind === 'solid') return part
         const big = { ...part, x: part.x * k, y: part.y * k, w: part.w * k, d: part.d * k }
         if (big.kind === 'box') return { ...big, h: big.h * k, z0: (big.z0 ?? 0) * k }
         return { ...big, eave: big.eave * k, ridge: big.ridge * k }
@@ -421,11 +433,11 @@
       const model = buildingModels.find((b) => b.id === a.model)
       const route = a.route ? routeById.get(a.route) : undefined
       if (!model || !route || route.points.length < 2) return []
-      const pts = route.points
+      const pts = a.reverse ? [...route.points].reverse() : route.points
       const kx = 111_320 * Math.cos((pts[0][1] * Math.PI) / 180)
       const dist = [0]
       for (let i = 1; i < pts.length; i++) dist.push(dist[i - 1] + Math.hypot((pts[i][0] - pts[i - 1][0]) * kx, (pts[i][1] - pts[i - 1][1]) * 111_200))
-      return [{ pts, dist, total: dist[dist.length - 1], parts: scaledParts(model, a.scale ?? 1), ms: a.ms ?? 9000, loop: !!a.loop, fill: a.fill, then: a.then, arrived: false }]
+      return [{ pts, dist, total: dist[dist.length - 1], parts: scaledParts(model, a.scale ?? 1), ms: a.ms ?? 9000, loop: !!a.loop, fill: a.fill, then: a.then, arrived: false, after: a.after }]
     })
     const alongRoute = (r: (typeof routed)[number], share: number) => {
       const d = Math.max(0, Math.min(r.total, share * r.total))
@@ -464,6 +476,7 @@
       const q =
         p.kind === 'box' ? { ...p, h: Math.max(0.05, p.h * k), z0: (p.z0 ?? 0) * k }
         : p.kind === 'prism' ? { ...p, h: Math.max(0.05, p.h * k), z0: (p.z0 ?? 0) * k }   // a raised deck comes up with its piers
+        : p.kind === 'solid' ? { ...p, verts: p.verts.map(([x, y, z]) => [x, y, z * Math.max(0.01, k)] as [number, number, number]) }
         : { ...p, eave: Math.max(0.05, p.eave * k), ridge: Math.max(0.06, p.ridge * k) }
       return { lon: r.lon, lat: r.lat, bearing: r.bearing, parts: [q], minBase: r.minBase, piles: r.piles, fill: r.fill }
     }
@@ -685,18 +698,66 @@
       requestAnimationFrame(layStep)
     }
 
+    // A card's figure: shown once the camera has settled.
+    statShown = null
+    if (stop.stat) {
+      const st = stop.stat
+      const at = performance.now() + flight * 0.8 + (st.after ?? 1500)
+      const showStat = (now: number) => {
+        if (run !== drawing) return
+        if (now >= at) statShown = { value: st.value, label: st.label }
+        else requestAnimationFrame(showStat)
+      }
+      requestAnimationFrame(showStat)
+    }
+    // People leaving: small figures walk out from the buildings, away from a place, and go.
+    const sc = stop.scatter
+    if (sc && sc.from.length) {
+      let seed = 1986
+      const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+      const total = sc.from.reduce((a, f) => a + f.weight, 0)
+      const kx = 111_320 * Math.cos((sc.away[1] * Math.PI) / 180)
+      const walkers = Array.from({ length: sc.count }, () => {
+        let r = rand() * total
+        const f = sc.from.find((x) => (r -= x.weight) <= 0) ?? sc.from[0]
+        const dx = (f.lon - sc.away[0]) * kx
+        const dy = (f.lat - sc.away[1]) * 111_200
+        const base = Math.atan2(dy, dx) + (rand() - 0.5) * 1.6
+        const reach = sc.reach[0] + rand() * (sc.reach[1] - sc.reach[0])
+        return { lon: f.lon, lat: f.lat, dx: (Math.cos(base) * reach) / kx, dy: (Math.sin(base) * reach) / 111_200, start: rand() * 0.45 }
+      })
+      // each a see-through grey dot on the ground, far larger than life so it reads at the scale of the district
+      const t0 = performance.now() + flight * 0.8 + (sc.delay ?? 1500)
+      const ms = sc.ms ?? 7000
+      const walk = (now: number) => {
+        if (run !== drawing) return
+        const t = (now - t0) / ms
+        const list: { lon: number; lat: number; r: number }[] = []
+        for (const w of walkers) {
+          const k = Math.max(0, Math.min(1, (t - w.start) / 0.55))
+          if (k <= 0 || k >= 1) continue
+          const fade = k < 0.15 ? k / 0.15 : k > 0.8 ? (1 - k) / 0.2 : 1
+          list.push({ lon: w.lon + w.dx * k, lat: w.lat + w.dy * k, r: 9 * fade })
+        }
+        mapNow.dots(list)
+        if (t < 1.05) requestAnimationFrame(walk)
+      }
+      requestAnimationFrame(walk)
+    }
+
     // A clearance: the old buildings stand picked out, go down, and the new ones come up in their place.
     const clearing = stop.clear
     if (clearing) {
-      const asShown = (b: GrowthBuilding, k: number): Shown => ({
+      const asShown = (b: GrowthBuilding, k: number, picked = true): Shown => ({
         lon: b.lon,
         lat: b.lat,
         bearing: 0,
         parts: b.parts.map((p) => ({ ...p, h: Math.max(0.05, p.h * k) })),
         minBase: b.minBase ?? 0,
         piles: b.piles ?? false,
-        fill: b.fill ?? clearing.fill,
+        ...(picked ? { fill: b.fill ?? clearing.fill } : { faint: true }),
       })
+      const pickAt = clearing.pick == null ? null : performance.now() + flight * 0.8 + clearing.pick
       const t0 = performance.now() + flight * 0.8 + (clearing.at ?? 2500)
       const ms = clearing.ms ?? 1600
       const ease = (k: number) => k * k * (3 - 2 * k)
@@ -704,7 +765,7 @@
         if (run !== drawing) return
         const t = now - t0
         let list: Shown[]
-        if (t < 0) list = clearing.old.map((b) => asShown(b, 1))
+        if (t < 0) list = clearing.old.map((b) => asShown(b, 1, pickAt == null || now >= pickAt))
         else if (t < ms) list = clearing.old.map((b) => asShown(b, 1 - ease(t / ms)))
         else if (t < ms * 2) list = clearing.then.map((b) => asShown(b, ease((t - ms) / ms)))
         else list = clearing.then.map((b) => asShown(b, 1))
@@ -726,13 +787,16 @@
     }
     if (routed.length) {
       // they set off once the routes have been drawn in, and a looping one starts again at the end
-      const from = performance.now() + flight * 0.6 + 3200
+      const from = performance.now() + flight * 0.6
       const travel = (now: number) => {
         if (run !== drawing) return
         let going = false
         const list = routed.map((r) => {
-          const raw = (now - from) / r.ms
-          if (raw < 0) return alongRoute(r, 0)
+          const raw = (now - from - (r.after ?? 3200)) / r.ms
+          if (raw < 0) {
+            going = true   // still waiting to set off; one told when to set off is not shown until then
+            return r.after != null ? null : alongRoute(r, 0)
+          }
           if (r.loop) {
             going = true
             return alongRoute(r, raw % 1)
@@ -748,7 +812,7 @@
           }
           return alongRoute(r, 1 - Math.pow(1 - t, 2)) // slowing as it comes in
         })
-        showVehicles([...(arriving.length ? placed(1) : []), ...list])
+        showVehicles([...(arriving.length ? placed(1) : []), ...list.filter((v): v is NonNullable<typeof v> => !!v)])
         if (going || now < from) requestAnimationFrame(travel)
       }
       requestAnimationFrame(travel)
@@ -853,6 +917,12 @@
     <!-- the year a stop's growth has reached -->
     {#if yearShown !== null}
       <p class="font-display pointer-events-none absolute right-8 bottom-6 text-7xl font-semibold tracking-tight text-[var(--ink)]/75 tabular-nums">{yearShown}</p>
+    {/if}
+    {#if statShown}
+      <div class="font-display pointer-events-none absolute right-8 bottom-6 text-right text-[var(--ink)]">
+        <p class="text-6xl font-semibold tracking-tight tabular-nums opacity-80">{statShown.value}</p>
+        <p class="mt-1 max-w-xs text-xs tracking-wide uppercase opacity-70">{statShown.label}</p>
+      </div>
     {/if}
     {#if fail || !mapReady}
       <p class="absolute right-4 bottom-4 rounded-md bg-white/85 px-3 py-1.5 text-xs text-[var(--ink-2)]">

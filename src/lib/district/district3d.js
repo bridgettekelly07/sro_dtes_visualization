@@ -97,6 +97,75 @@ export class District3D {
   setPlain(on) { this.plain = !!on; }
   // base map: when on, only the land, water and contours are drawn: the ground before the city
   setBare(on) { on = !!on; if (on !== !!this.bare) { this.bare = on; this.needFoot = true; } }
+  // base map: streets filled in white on the bare land: each centreline ([lon, lat] points) as a flat
+  // ribbon `widthM` metres wide lying on the ground, with a round pad at each point so the joins and
+  // crossings close up. Rebuilt only when given a different list.
+  setStreetFill(lines, widthM = 20) {
+    if (!this.ready || !this.proj) return;
+    if (this.streetFillOf === lines) return;
+    this.streetFillOf = lines;
+    this.clear(this.gStreetFill);
+    if (!lines || !lines.length) { this.dirty = true; return; }
+    if (!this.matStreetFill) this.matStreetFill = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const u = 1 / this.mPerUnit, hw = (widthM / 2) * u, pos = [], N = 10;
+    const Y = (x, z) => this.yAt(x, z) + 0.15 * u;
+    lines.forEach((line) => {
+      const P = line.map(([lon, lat]) => [this.proj.x(lon), this.proj.y(lat)]);
+      for (let i = 1; i < P.length; i++) {
+        const [ax, az] = P[i - 1], [bx, bz] = P[i], l = Math.hypot(bx - ax, bz - az);
+        if (!l) continue;
+        // long stretches are cut into pieces, so the ribbon follows the ground's rise and fall
+        const n = Math.max(1, Math.ceil(l / (25 * u))), nx = -(bz - az) / l * hw, nz = (bx - ax) / l * hw;
+        for (let k = 0; k < n; k++) {
+          const x0 = ax + (bx - ax) * k / n, z0 = az + (bz - az) * k / n, x1 = ax + (bx - ax) * (k + 1) / n, z1 = az + (bz - az) * (k + 1) / n;
+          const y0 = Y(x0, z0), y1 = Y(x1, z1);
+          pos.push(x0 + nx, y0, z0 + nz, x1 + nx, y1, z1 + nz, x1 - nx, y1, z1 - nz, x0 + nx, y0, z0 + nz, x1 - nx, y1, z1 - nz, x0 - nx, y0, z0 - nz);
+        }
+      }
+      P.forEach(([x, z]) => {
+        const y = Y(x, z);
+        for (let i = 0; i < N; i++) {
+          const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+          pos.push(x, y, z, x + Math.cos(a0) * hw, y, z + Math.sin(a0) * hw, x + Math.cos(a1) * hw, y, z + Math.sin(a1) * hw);
+        }
+      });
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    this.gStreetFill.add(new THREE.Mesh(geo, this.matStreetFill));
+    this.dirty = true;
+  }
+  // base map: people as dots on the ground, each { lon, lat, r } with r in metres, in a see-through grey.
+  // Redrawn whole on every call, so a card can move them each frame.
+  setDots(list) {
+    if (!this.ready || !this.proj) return;
+    this.clear(this.gDots);
+    if (!list || !list.length) { this.dirty = true; return; }
+    if (!this.matDot) this.matDot = new THREE.MeshBasicMaterial({ color: 0x1f1f1f, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide });
+    const u = 1 / this.mPerUnit, pos = [], N = 14;
+    list.forEach(({ lon, lat, r }) => {
+      const x = this.proj.x(lon), z = this.proj.y(lat), y = this.yAt(x, z) + 1.2 * u, R = r * u;
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+        pos.push(x, y, z, x + Math.cos(a0) * R, y, z + Math.sin(a0) * R, x + Math.cos(a1) * R, y, z + Math.sin(a1) * R);
+      }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    const mesh = new THREE.Mesh(geo, this.matDot);
+    mesh.renderOrder = 5;
+    this.gDots.add(mesh);
+    this.dirty = true;
+  }
+  // base map: when on, the False Creek bridges are modelled on the bare land too
+  setBridges(on) {
+    on = !!on;
+    if (on === !!this.bridgesOn) return;
+    this.bridgesOn = on;
+    if (!this.bare || !this.ready || !this.data) return;
+    if (on) this.buildBridges(); else this.clear(this.gBridges);
+    this.dirty = true;
+  }
   // base map: sites and paths to mark on the ground.
   //   sites: [{ label, lon, lat }]   paths: dashed lines, [[[lon, lat], ...], ...]   lines: solid lines, same shape
   setMarks(sites, paths, lines, accent) { this.marks = { sites: sites || [], paths: paths || [], lines: lines || [], accent: accent || [] }; if (this.ready) { this.buildMarks(); this.dirty = true; } }
@@ -606,8 +675,8 @@ export class District3D {
     this.gBurn = new THREE.Group();   // base map: charcoal over burned ground
     this.matStorey = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22 });
     this.gGround = new THREE.Group(); this.gFoot = new THREE.Group(); this.gStreets = new THREE.Group();
-    this.gSro = new THREE.Group(); this.gSel = new THREE.Group(); this.gNames = new THREE.Group(); this.gTrees = new THREE.Group(); this.gBridges = new THREE.Group(); this.gHarbour = new THREE.Group();
-    this.scene.add(this.gGround, this.gFoot, this.gStreets, this.gNames, this.gTrees, this.gSro, this.gSel, this.gBridges, this.gHarbour, this.gDotted, this.gBurn, this.gFine, this.gText, this.gModels, this.gMarks);
+    this.gSro = new THREE.Group(); this.gSel = new THREE.Group(); this.gNames = new THREE.Group(); this.gTrees = new THREE.Group(); this.gBridges = new THREE.Group(); this.gHarbour = new THREE.Group(); this.gDots = new THREE.Group(); this.gStreetFill = new THREE.Group();
+    this.scene.add(this.gGround, this.gFoot, this.gStreets, this.gNames, this.gTrees, this.gSro, this.gSel, this.gBridges, this.gHarbour, this.gDotted, this.gBurn, this.gFine, this.gText, this.gModels, this.gMarks, this.gDots, this.gStreetFill);
     this.sroMeshes = [];
     this.bindPointer();
     this.ready = true;
@@ -1537,6 +1606,7 @@ export class District3D {
       if (this.needFoot) {
         this.buildGround();
         [this.gFoot, this.gStreets, this.gNames, this.gTrees, this.gBridges, this.gHarbour, this.gSro, this.gSel].forEach((g) => this.clear(g));
+        if (this.bridgesOn) this.buildBridges();
         this.nameMeshes = null; this.sroMeshes = [];
         this.needFoot = false;
       }
@@ -1618,6 +1688,14 @@ export class District3D {
           }
           pc.tris.forEach(([i, j, k]) => tri.push(ring[i][0], hi(i), ring[i][1], ring[j][0], hi(j), ring[j][1], ring[k][0], hi(k), ring[k][1]));
           void top;
+          return;
+        }
+        if (p.kind === "solid") {
+          // base map: a curved form as a mesh, in metres from (x, y) and up from the ground under the model
+          const g = this.yAt(sx, sz) + 0.2 * u;
+          const V = p.verts.map(([vx, vy, vz]) => { const lx = p.x + vx, ly = p.y + vy; return [sx + (lx * cb - ly * sb) * u, g + vz * u, sz - (lx * sb + ly * cb) * u]; });
+          p.tris.forEach(([i, j, k]) => tri.push(...V[i], ...V[j], ...V[k]));
+          p.lines.forEach(([i, j]) => edge.push(...V[i], ...V[j]));
           return;
         }
         const a = (p.rot || 0) * Math.PI / 180, cr = Math.cos(a), sr = Math.sin(a), z0 = p.z0 || 0;
