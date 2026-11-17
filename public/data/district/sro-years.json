@@ -1,0 +1,720 @@
+{
+ "source": "City of Vancouver Open Data, 'Property tax report', year_built, 2025 assessment; looked up by each building's first civic number and street. Made by scripts/fetch-sro-years.py.",
+ "years": {
+  "ACADEMY HOUSE (THE LARK)": {
+   "addr": "103 E Hastings St.",
+   "built": 1901,
+   "records": 1
+  },
+  "ALEXANDER RESIDENCE": {
+   "addr": "58 Alexander St.",
+   "built": 1912,
+   "records": 1
+  },
+  "ANTOINETTE LODGE": {
+   "addr": "535 E Cordova St.",
+   "built": 1975,
+   "records": 1
+  },
+  "ARCO HOTEL": {
+   "addr": "81 W Pender St.",
+   "built": 1912,
+   "records": 1
+  },
+  "CENTRAL RESIDENCE": {
+   "addr": "42 E Cordova St.",
+   "built": 1912,
+   "records": 1
+  },
+  "CORDOVA HOUSE": {
+   "addr": "368 E Cordova St.",
+   "built": 1975,
+   "records": 1
+  },
+  "CORDOVA ROOMS": {
+   "addr": "54 E Cordova St.",
+   "built": 1912,
+   "records": 1
+  },
+  "DOMINION HOTEL": {
+   "addr": "210 Abbott St.",
+   "built": 1901,
+   "records": 1
+  },
+  "ELECTRIC OWL (AMERICAN HOTEL)": {
+   "addr": "928 Main St.",
+   "built": 1907,
+   "records": 1
+  },
+  "EUROPE HOTEL": {
+   "addr": "43 Powell St.",
+   "built": 1908,
+   "records": 1
+  },
+  "GRANVILLE RESIDENCE": {
+   "addr": "1261 Granville St.",
+   "built": 1911,
+   "records": 1
+  },
+  "HAZELWOOD": {
+   "addr": "344 E Hastings St.",
+   "built": 1912,
+   "records": 1
+  },
+  "HOTEL CANADA (MARBLE ARCH HOTEL)": {
+   "addr": "518 Richards St.",
+   "built": 1909,
+   "records": 1
+  },
+  "HOTEL WASHINGTON (MAPLE HOTEL)": {
+   "addr": "177 E Hastings St.",
+   "built": 1912,
+   "records": 1
+  },
+  "HUGH BIRD RESIDENCE": {
+   "addr": "420 E Cordova St.",
+   "built": null,
+   "records": 0
+  },
+  "JUBILEE ROOMS": {
+   "addr": "235 Main St.",
+   "built": 1911,
+   "records": 1
+  },
+  "MARR HOTEL": {
+   "addr": "401 / 403 Powell St.",
+   "built": 1947,
+   "records": 1
+  },
+  "OPPENHEIMER LODGE": {
+   "addr": "450 E Cordova St.",
+   "built": 1973,
+   "records": 1
+  },
+  "ORWELL HOTEL": {
+   "addr": "456 E Hastings St.",
+   "built": 1911,
+   "records": 1
+  },
+  "PARK HOTEL": {
+   "addr": "429 W Pender St.",
+   "built": 1909,
+   "records": 1
+  },
+  "PATRICIA HOTEL": {
+   "addr": "403 E Hastings St.",
+   "built": 1912,
+   "records": 1
+  },
+  "PENNSYLVANIA HOTEL": {
+   "addr": "412 Carrall St.",
+   "built": 1906,
+   "records": 1
+  },
+  "RAINIER HOTEL": {
+   "addr": "309 Carrall St.",
+   "built": 1909,
+   "records": 1
+  },
+  "RICE BLOCK": {
+   "addr": "160 E Hastings St.",
+   "built": 1913,
+   "records": 1
+  },
+  "ROOSEVELT HOTEL (MOLSON HOTEL)": {
+   "addr": "404 Hawks Ave",
+   "built": 1912,
+   "records": 1
+  },
+  "ROSS HOUSE": {
+   "addr": "313 Alexander St.",
+   "built": 1907,
+   "records": 1
+  },
+  "SAVOY HOTEL": {
+   "addr": "258 E Hastings St.",
+   "built": 1912,
+   "records": 1
+  },
+  "ST. HELEN'S HOTEL": {
+   "addr": "1161 Granville St.",
+   "built": 1911,
+   "records": 1
+  },
+  "STATION STREET HOTEL (PARK)": {
+   "addr": "429 W Pender St.",
+   "built": 1909,
+   "records": 1
+  },
+  "SUNRISE HOTEL": {
+   "addr": "101 E Hastings St.",
+   "built": 1906,
+   "records": 2
+  },
+  "TAMURA HOUSE": {
+   "addr": "396 Powell St./ 225 Dunlevy Ave",
+   "built": null,
+   "records": 0
+  },
+  "THE BEACON (BEACON HOTEL)": {
+   "addr": "7 W Hastings St.",
+   "built": 1901,
+   "records": 1
+  },
+  "THE CORNERSTONE (CARL ROOMS)": {
+   "addr": "375 Princess Ave",
+   "built": null,
+   "records": 0
+  },
+  "THE GRESHAM": {
+   "addr": "7 W Hastings St.",
+   "built": 1901,
+   "records": 1
+  },
+  "VETERAN'S MEMORIAL MANOR": {
+   "addr": "310 Alexander St.",
+   "built": 1986,
+   "records": 1
+  },
+  "WALTON HOTEL": {
+   "addr": "261 / 265 E Hastings St.",
+   "built": 1910,
+   "records": 1
+  },
+  "YALE HOTEL": {
+   "addr": "1306 Granville St.",
+   "built": 1909,
+   "records": 1
+  },
+  "ASIA HOTEL": {
+   "addr": "137/139 E Pender St.",
+   "built": 1921,
+   "records": 1
+  },
+  "HING MEE SOCIETY": {
+   "addr": "553 / 556 Prior St.",
+   "built": 1905,
+   "records": 1
+  },
+  "LEW MAO WAY TONG ASSOCIATION / WOO SOCIETY": {
+   "addr": "349 / 359 E Pender St.",
+   "built": 1989,
+   "records": 1
+  },
+  "NEW SUN AH HOTEL": {
+   "addr": "100 E Pender St.",
+   "built": 1911,
+   "records": 1
+  },
+  "TOI SAN BENEVOLENT (TOI SHAN BENEVOLENT / PHOENIX HOTEL)": {
+   "addr": "237 E Hastings St.",
+   "built": 1908,
+   "records": 1
+  },
+  "VANCOUVER SUNG CHING (TSUNG TSING) (HAKKA) ASSOCIATION": {
+   "addr": "542 Keefer St.",
+   "built": 1905,
+   "records": 1
+  },
+  "YIN PING SOCIETY": {
+   "addr": "414 Columbia St.",
+   "built": 1910,
+   "records": 1
+  },
+  "ABBOTT MANSIONS": {
+   "addr": "84 W Hastings St./ 404 Abbott St.",
+   "built": 1909,
+   "records": 1
+  },
+  "BRIDGE HOUSING": {
+   "addr": "100 E Cordova St.",
+   "built": 2001,
+   "records": 1
+  },
+  "CHINA VILLA": {
+   "addr": "300 E Pender St.",
+   "built": 1970,
+   "records": 1
+  },
+  "COSMOPOLITAN HOTEL": {
+   "addr": "29 / 31 W Hastings St.",
+   "built": 1910,
+   "records": 1
+  },
+  "DODSON ROOMS": {
+   "addr": "25 E Hastings St.",
+   "built": 1909,
+   "records": 1
+  },
+  "HAMPTON HOTEL": {
+   "addr": "122/124 Powell St.",
+   "built": 1912,
+   "records": 2
+  },
+  "IMOUTO HOUSE": {
+   "addr": "500 & 502 Alexander St./ 120 Jackson Ave",
+   "built": 1912,
+   "records": 1
+  },
+  "KEEFER LODGE": {
+   "addr": "558 Keefer St.",
+   "built": 1963,
+   "records": 1
+  },
+  "NEW COLUMBIA (TAWOW)": {
+   "addr": "303 Columbia St.",
+   "built": 1905,
+   "records": 1
+  },
+  "ROSE GARDEN CO-OP": {
+   "addr": "853 E Pender St.",
+   "built": 1981,
+   "records": 1
+  },
+  "SAKURA-SO": {
+   "addr": "376 Powell St.",
+   "built": null,
+   "records": 0
+  },
+  "SEREENA'S PLACE": {
+   "addr": "395 Powell St. / 143 Dunlevy Ave",
+   "built": 1910,
+   "records": 1
+  },
+  "THE VIVIAN (SMILEY ROOMS)": {
+   "addr": "512 E Cordova St.",
+   "built": 1910,
+   "records": 1
+  },
+  "(5 W HASTINGS) CANADIAN NORTH STAR": {
+   "addr": "5 W Hastings St.",
+   "built": 1904,
+   "records": 1
+  },
+  "(THE HEATLEY BLOCK) HEATLEY BLOCK": {
+   "addr": "684 E Hastings St. / 405/407 Heatley Ave",
+   "built": 1931,
+   "records": 1
+  },
+  "221 E GEORGIA": {
+   "addr": "221 E Georgia St.",
+   "built": 1912,
+   "records": 1
+  },
+  "55 POWELL (GRAND TRUNK)": {
+   "addr": "55 Powell St.",
+   "built": 1906,
+   "records": 1
+  },
+  "630 E GEORGIA": {
+   "addr": "630 E Georgia St.",
+   "built": null,
+   "records": 0
+  },
+  "872 E HASTINGS": {
+   "addr": "872 E Hastings St.",
+   "built": 1903,
+   "records": 1
+  },
+  "AFTON HOTEL/ROOMS": {
+   "addr": "249 E Hastings St.",
+   "built": 1910,
+   "records": 1
+  },
+  "ALEXANDER APARTMENTS": {
+   "addr": "326 Woodland Drive",
+   "built": null,
+   "records": 0
+  },
+  "ALEXANDER COURT": {
+   "addr": "103 Columbia St./ 90 Alexander St.",
+   "built": 1905,
+   "records": 1
+  },
+  "ARGYLE HOTEL": {
+   "addr": "100 / 106 W Hastings St.",
+   "built": 1904,
+   "records": 1
+  },
+  "ARLINGTON ROOMS": {
+   "addr": "575 / 577 E Pender St.",
+   "built": 1912,
+   "records": 1
+  },
+  "ARNO ROOMS": {
+   "addr": "291 E Georgia St.",
+   "built": 1912,
+   "records": 1
+  },
+  "ASTORIA HOTEL": {
+   "addr": "769 E Hastings St.",
+   "built": 1911,
+   "records": 1
+  },
+  "B.C. ROOMS/JACKSON ROOMS": {
+   "addr": "306 Jackson Ave",
+   "built": 1976,
+   "records": 1
+  },
+  "BELMONT STUDENT RESIDENCE (BELMONT INN)": {
+   "addr": "239 / 241 E Hastings St.",
+   "built": 1910,
+   "records": 1
+  },
+  "BRANDIZ HOTEL": {
+   "addr": "122 E Hastings St.",
+   "built": 1913,
+   "records": 1
+  },
+  "CHELSEA INN": {
+   "addr": "33 W Hastings St.",
+   "built": 1906,
+   "records": 1
+  },
+  "COBALT HOTEL": {
+   "addr": "915 / 917 Main St.",
+   "built": 1910,
+   "records": 1
+  },
+  "COSY CORNER INN/ 412 COLUMBIA": {
+   "addr": "100 E Hastings St. / 412 Columbia St",
+   "built": 1957,
+   "records": 1
+  },
+  "CREEKSIDE STUDENT RESIDENCES": {
+   "addr": "796 Main St.",
+   "built": null,
+   "records": 1
+  },
+  "DANNY'S INN/ROOMS": {
+   "addr": "313/317/325 Cambie St.",
+   "built": 1901,
+   "records": 1
+  },
+  "DECKER RESIDENCE": {
+   "addr": "504 Alexander St.",
+   "built": 1912,
+   "records": 1
+  },
+  "DEL MAR HOTEL": {
+   "addr": "553 Hamilton St.",
+   "built": 1911,
+   "records": 1
+  },
+  "EMPRESS HOTEL": {
+   "addr": "235 E Hastings St.",
+   "built": 1913,
+   "records": 1
+  },
+  "GEORGIA MANOR": {
+   "addr": "634 E Georgia St.",
+   "built": 1905,
+   "records": 1
+  },
+  "GLORY HOTEL": {
+   "addr": "202 / 204 Carrall St.",
+   "built": 1909,
+   "records": 1
+  },
+  "GOLDEN CROWN HOTEL": {
+   "addr": "116 W Hastings St.",
+   "built": 1906,
+   "records": 1
+  },
+  "GRAND UNION HOTEL": {
+   "addr": "74 W Hastings St.",
+   "built": 1909,
+   "records": 1
+  },
+  "HAMILTON APTS": {
+   "addr": "1895 Powell St.",
+   "built": null,
+   "records": 0
+  },
+  "HARBOUR FRONT": {
+   "addr": "209 Heatley Ave",
+   "built": 1925,
+   "records": 1
+  },
+  "HARBOUR ROOMS": {
+   "addr": "230 Princess Ave",
+   "built": 1901,
+   "records": 1
+  },
+  "HILDON HOTEL": {
+   "addr": "40 /50 W Cordova St.",
+   "built": 1910,
+   "records": 1
+  },
+  "HIP-O STUDIOS": {
+   "addr": "406 Union St.",
+   "built": 1910,
+   "records": 1
+  },
+  "HOLBORN HOTEL": {
+   "addr": "367 E Hastings St.",
+   "built": 1911,
+   "records": 1
+  },
+  "IVANHOE HOTEL": {
+   "addr": "1038 Main St.",
+   "built": 1910,
+   "records": 1
+  },
+  "KEEFER CABINS (KEEFER APARTMENTS)": {
+   "addr": "727 Keefer St.",
+   "built": 1901,
+   "records": 1
+  },
+  "KING ROOMS": {
+   "addr": "326 Powell St.",
+   "built": 1901,
+   "records": 1
+  },
+  "LAUREL APARTMENTS": {
+   "addr": "610 Alexander St.",
+   "built": 1912,
+   "records": 1
+  },
+  "LION HOTEL": {
+   "addr": "316 Powell St.",
+   "built": 1912,
+   "records": 1
+  },
+  "LOTUS HOTEL": {
+   "addr": "455 Abbott St.",
+   "built": 1913,
+   "records": 1
+  },
+  "LUCKY LODGE": {
+   "addr": "132 / 134 Powell St.",
+   "built": 1912,
+   "records": 1
+  },
+  "MAIN ROOMS (MAIN HOTEL)": {
+   "addr": "117 Main St.",
+   "built": 1908,
+   "records": 1
+  },
+  "METRO RESIDENCE": {
+   "addr": "527 / 533 E Georgia St.",
+   "built": 1905,
+   "records": 1
+  },
+  "METROPOLE HOTEL": {
+   "addr": "320 Abbott St.",
+   "built": 1911,
+   "records": 1
+  },
+  "MT EVEREST ROOMS": {
+   "addr": "242/244 E Hastings St.",
+   "built": 1910,
+   "records": 1
+  },
+  "NEW LUCKY ROOMS (LUCK ROOMS)": {
+   "addr": "466 /468 Union St.",
+   "built": 1905,
+   "records": 1
+  },
+  "PACIFIC ROOMS": {
+   "addr": "507 /509 Main St.",
+   "built": 1908,
+   "records": 1
+  },
+  "PALACE HOTEL": {
+   "addr": "35/37 W Hastings St.",
+   "built": 1906,
+   "records": 1
+  },
+  "PATRICK ANTHONY RESIDENCE": {
+   "addr": "561 E Hastings St.",
+   "built": 1912,
+   "records": 1
+  },
+  "PENDER LODGE (431 E PENDER)": {
+   "addr": "431 E Pender St.",
+   "built": 1910,
+   "records": 1
+  },
+  "PENDER PLACE": {
+   "addr": "228 E Pender St.",
+   "built": 1915,
+   "records": 1
+  },
+  "PENDER RESIDENCE": {
+   "addr": "832 E Pender St.",
+   "built": 1907,
+   "records": 1
+  },
+  "PERSOPOLISE HOTEL": {
+   "addr": "83 E Hastings/ 351 Columbia St.",
+   "built": 1901,
+   "records": 1
+  },
+  "PICADILLY/PENDER PLACE (2)": {
+   "addr": "620 / 622 W Pender St.",
+   "built": 1906,
+   "records": 1
+  },
+  "PINK HOUSE (812 KEEFER)": {
+   "addr": "812 Keefer St.",
+   "built": 1907,
+   "records": 1
+  },
+  "REGAL HOTEL": {
+   "addr": "1044/ 1046 Granville St.",
+   "built": 1910,
+   "records": 1
+  },
+  "SHAMROCK HOTEL": {
+   "addr": "635 E Hastings St.",
+   "built": 1912,
+   "records": 1
+  },
+  "SIESTA ROOMS": {
+   "addr": "932 / 936 Granville St.",
+   "built": 1910,
+   "records": 1
+  },
+  "SILVER/AVALON HOTEL": {
+   "addr": "165 W Pender St.",
+   "built": 1913,
+   "records": 1
+  },
+  "ST. CLAIR (SAINT CLAIR 2)": {
+   "addr": "1190 E Hastings St.",
+   "built": null,
+   "records": 0
+  },
+  "ST. ELMO HOTEL/ROOMS": {
+   "addr": "429 Campbell Ave",
+   "built": null,
+   "records": 0
+  },
+  "STAR BEACH HAVEN (ROSE HOTEL)": {
+   "addr": "658 Alexander St.",
+   "built": 1912,
+   "records": 1
+  },
+  "SUMMER HOTEL": {
+   "addr": "341 E Hastings St.",
+   "built": 1910,
+   "records": 1
+  },
+  "TRAVELLER'S HOTEL": {
+   "addr": "57 W Cordova St.",
+   "built": 1909,
+   "records": 1
+  },
+  "TRIPLE SIX / OCEAN ROOMS": {
+   "addr": "666/ 688 Alexander St.",
+   "built": 1912,
+   "records": 1
+  },
+  "UNITED ROOMS": {
+   "addr": "139 E Cordova St.",
+   "built": 1912,
+   "records": 1
+  },
+  "VOGUE HOTEL": {
+   "addr": "1060 Granville St.",
+   "built": 1910,
+   "records": 1
+  },
+  "WEST HOTEL": {
+   "addr": "488 Carrall St.",
+   "built": 1912,
+   "records": 1
+  },
+  "WONDER ROOMS": {
+   "addr": "50 E Cordova St.",
+   "built": 1912,
+   "records": 1
+  },
+  "WOODBINE HOTEL": {
+   "addr": "782/786 E Hastings St.",
+   "built": 1912,
+   "records": 1
+  },
+  "YORK ROOMS (259 POWELL)": {
+   "addr": "259 Powell St.",
+   "built": 1907,
+   "records": 1
+  },
+  "COLONIAL RESIDENCE": {
+   "addr": "114 /122 Water St.",
+   "built": 1911,
+   "records": 1
+  },
+  "EMPRESS ROOMS": {
+   "addr": "362 Alexander St.",
+   "built": 1920,
+   "records": 1
+  },
+  "FLINT RESIDENCE": {
+   "addr": "1516 Powell St.",
+   "built": 1905,
+   "records": 1
+  },
+  "MURRAY HOTEL": {
+   "addr": "1117 / 1119 Hornby St.",
+   "built": 1912,
+   "records": 1
+  },
+  "POWELL ROOMS": {
+   "addr": "556 Powell St.",
+   "built": 1912,
+   "records": 1
+  },
+  "CHINESE FREEMASONS": {
+   "addr": "110 E Pender St.",
+   "built": 1907,
+   "records": 1
+  },
+  "LUNG JEN BENEVOLENT": {
+   "addr": "240 Keefer St.",
+   "built": 1933,
+   "records": 1
+  },
+  "GASTOWN HOTEL": {
+   "addr": "110/ 112 Water St.",
+   "built": 1910,
+   "records": 1
+  },
+  "SKWACHAY'S HEALING LODGE": {
+   "addr": "31 W Pender St.",
+   "built": 1913,
+   "records": 1
+  },
+  "THORTON PARK": {
+   "addr": "956 Main St.",
+   "built": 1901,
+   "records": 1
+  },
+  "MAY WAH HOTEL": {
+   "addr": "254 / 256 / 268 E Pender St.",
+   "built": 1912,
+   "records": 1
+  },
+  "1218 E GEORGIA": {
+   "addr": "1218 E Georgia St.",
+   "built": 1905,
+   "records": 1
+  },
+  "NO. 5 ORANGE": {
+   "addr": "203 / 205 Main St.",
+   "built": 1904,
+   "records": 1
+  },
+  "VET'S ROOMS": {
+   "addr": "307 / 311 Main St.",
+   "built": null,
+   "records": 0
+  },
+  "NEW PORTLAND HOTEL": {
+   "addr": "20 W Hastings St.",
+   "built": 2001,
+   "records": 1
+  }
+ }
+}

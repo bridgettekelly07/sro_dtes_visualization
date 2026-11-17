@@ -18,6 +18,7 @@
 //   - setGroundText(): lettering laid flat on the ground along a line, such as a shoreline's name
 //   - setFine(): fine annotation lines on the ground, solid, dashed or dotted, such as rings and leaders
 //   - setBurn() / setBurnReach(): a charcoal smudge over an area of ground, spreading out from a point
+//   - setLand(): swap the land-and-water mask for another time's shoreline
 //   - setDotted(): lines drawn on the ground as rows of dots, such as today's shoreline over an older one
 //   - setModels(): small buildings made of simple parts (gabled sheds, hipped blocks, boxes, decks on legs)
 // The district in 3D: the same footprints, streets and Appendix B buildings
@@ -393,6 +394,39 @@ export class District3D {
   }
 
   // ---- data and style ----
+  // base map: swap the land-and-water mask (as in data.terrain.land) for another of the same grid, to show
+  // the shoreline of another time. The ground, and everything laid on it, is rebuilt.
+  // With `ms`, the water's edge moves from the old shore to the new over that long: the shader blends the
+  // two shoreline fields, so the edge slides rather than jumps. Everything else is rebuilt at once.
+  setLand(land, ms = 0) {
+    if (!land || !this.data || !this.data.terrain || this.data.terrain.land === land) return;
+    const old = ms > 0 && this.shoreBytes ? this.shoreMap.value : null;
+    if (old) this.shoreMap.value = null;   // kept for the blend, so the rebuild does not dispose it
+    this.data = { ...this.data, terrain: { ...this.data.terrain, land } };
+    this.shore = undefined; this.outline = undefined; this.shoreBytes = undefined;
+    this.needFoot = true; this.textBuilt = false; this.fineBuilt = false; this.dottedBuilt = false; this.burnBuilt = false;
+    this.build();
+    if (this.shoreMap2.value && this.shoreMap2.value !== this.oneLandTex) this.shoreMap2.value.dispose();
+    this.landFade = (this.landFade || 0) + 1;
+    if (!old) { this.shoreMap2.value = this.oneLand(); this.shoreMix.value = 0; return; }
+    const run = this.landFade, t0 = performance.now();
+    this.shoreMap2.value = old; this.shoreMix.value = 1;
+    const step = (now) => {
+      if (run !== this.landFade) return;
+      const k = Math.min(1, (now - t0) / ms);
+      this.shoreMix.value = 1 - k * k * (3 - 2 * k);
+      this.dirty = true;
+      if (k < 1) requestAnimationFrame(step);
+      else { this.shoreMap2.value = this.oneLand(); old.dispose(); }
+    };
+    requestAnimationFrame(step);
+  }
+  // base map: the weight and colour of the buildings' edges, which a card can lighten
+  setModelEdge(e) {
+    this.matModelEdge.linewidth = (e && e.width) || 1.1;
+    this.matModelEdge.color.set((e && e.colour) || css("--m3-edge") || "#1f1f1f");
+    this.dirty = true;
+  }
   setData(data, proj) { this.data = data; this.proj = proj; this.needFoot = true; this.parkShades = null; this.shore = undefined; this.outline = undefined; this.shoreBytes = undefined; }
   // colourOf(b, i) -> hex: the policy colour, or the tenure colour, for each SRO's whole massing
   // bandsOf(b, i) -> [{ share, hex }] bottom up, or null: the massing split into bands by where its tenants go
@@ -437,6 +471,8 @@ export class District3D {
     // shoreline distance field decides, per pixel, whether to show it or the water wash beneath
     const one = (v, cs) => { const t = new THREE.DataTexture(new Uint8Array(v), 1, 1, THREE.RGBAFormat); if (cs) t.colorSpace = cs; t.needsUpdate = true; return t; };
     this.shoreMap = { value: one([255, 255, 255, 255]) };          // all land until the data arrives
+    // base map: the shoreline of the time before, blended in by uShoreMix while a change of shore plays out
+    this.shoreMap2 = { value: one([255, 255, 255, 255]) }; this.shoreMix = { value: 0 };
     this.waterMap = { value: one([188, 196, 192, 255], THREE.SRGBColorSpace) };
     // the grid beyond the data continues over the water, drawn in the shader so it cannot fight the surface
     this.gridStep = { value: 1 }; this.gridOrigin = { value: new THREE.Vector2() }; this.gridColor = { value: new THREE.Color(0xdcd8ce) };
@@ -447,6 +483,7 @@ export class District3D {
     this.matTerrain.customProgramCacheKey = () => "shore-terrain";
     this.matTerrain.onBeforeCompile = (sh) => {
       sh.uniforms.uShore = this.shoreMap; sh.uniforms.uWater = this.waterMap;
+      sh.uniforms.uShore2 = this.shoreMap2; sh.uniforms.uShoreMix = this.shoreMix;
       sh.uniforms.uMetres = this.charcoalMetres; sh.uniforms.uTooth = this.charcoalTooth;
       sh.uniforms.uGridW = this.gridW;
       sh.uniforms.uGridStep = this.gridStep; sh.uniforms.uGridOrigin = this.gridOrigin; sh.uniforms.uGridColor = this.gridColor;
@@ -454,10 +491,10 @@ export class District3D {
         .replace("void main() {", "varying vec2 vGroundXZ;\nvoid main() {")
         .replace("#include <begin_vertex>", "#include <begin_vertex>\n\tvGroundXZ = (modelMatrix * vec4(position, 1.0)).xz;");
       sh.fragmentShader = sh.fragmentShader
-        .replace("void main() {", "uniform sampler2D uShore;\nuniform sampler2D uWater;\nuniform float uGridStep;\nuniform vec2 uGridOrigin;\nuniform vec3 uGridColor;\nuniform float uGridW;\nvarying vec2 vGroundXZ;\n" + CHARCOAL_GLSL + "\nvoid main() {")
+        .replace("void main() {", "uniform sampler2D uShore;\nuniform sampler2D uShore2;\nuniform float uShoreMix;\nuniform sampler2D uWater;\nuniform float uGridStep;\nuniform vec2 uGridOrigin;\nuniform vec3 uGridColor;\nuniform float uGridW;\nvarying vec2 vGroundXZ;\n" + CHARCOAL_GLSL + "\nvoid main() {")
         .replace("#include <map_fragment>", `#include <map_fragment>
 #ifdef USE_MAP
-\tfloat sd = texture2D(uShore, vMapUv).r - 0.5;            // positive inland
+\tfloat sd = mix(texture2D(uShore, vMapUv).r, texture2D(uShore2, vMapUv).r, uShoreMix) - 0.5;            // positive inland; blended with the shore before while it changes
 \tfloat aa = fwidth(sd) * 0.75;
 \tfloat land = smoothstep(-aa, aa, sd);
 \tvec3 water = texture2D(uWater, vMapUv).rgb;
@@ -541,11 +578,15 @@ export class District3D {
     this.matMarkPath = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.5, dashed: true, dashScale: 1 });
     this.matMarkLine = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.6 });
     this.matMarkDot = new LineMaterial({ color: 0x3a3a3a, linewidth: 1.2 });
+    // base map: a dotted stem from a building's roof up to its name
+    this.matMarkStem = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.3, dashed: true, dashScale: 1 });
     this.gDotted = new THREE.Group();
     this.gMarks = new THREE.Group();
     // base map: modelled buildings, white with an ink edge that keeps its weight at any distance
     this.matModel = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
     this.matModelEdge = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.1 });
+    // base map: context buildings drawn faintly (`faint` on a model): a pale grey outline, thinner
+    this.matModelEdgeFaint = new LineMaterial({ color: 0xa8a8a8, linewidth: 0.7, transparent: true, opacity: 0.8 });
     this.gModels = new THREE.Group();
     this.matRailSide = new THREE.MeshBasicMaterial({ color: 0xd4d4d4, side: THREE.DoubleSide });
     this.matGrid = new THREE.LineBasicMaterial({ color: 0xdcd8ce });   // the grid over the ground beyond the data
@@ -1515,11 +1556,54 @@ export class District3D {
     this.clear(this.gModels);
     const list = this.models || [];
     if (!list.length) return;
-    const proj = this.proj, u = 1 / this.mPerUnit, tri = [], edge = [];
+    const proj = this.proj, u = 1 / this.mPerUnit, edgeInk = [], edgeFaint = [];
+    // base map: a model may carry its own fill colour (`fill`, a hex string); the rest are white
+    const tris = new Map();
+    let tri = [];
     list.forEach((m) => {
+      const key = m.fill || (m.faint ? "#f3f3f3" : "");
+      if (!tris.has(key)) tris.set(key, []);
+      tri = tris.get(key);
+      const edge = m.faint ? edgeFaint : edgeInk;
       const sx = proj.x(m.lon), sz = proj.y(m.lat);
       const cb = Math.cos(m.bearing || 0), sb = Math.sin(m.bearing || 0);
       m.parts.forEach((p) => {
+        if (p.kind === "prism") {
+          // base map: a building raised straight up from its real footprint (`ring`, [lon, lat] points) to
+          // height `h` metres, standing on the lowest ground under it
+          // the footprint's place on the ground and its roof's triangles are worked out once per ring, so
+          // thousands of buildings can be raised a little further every frame
+          this.prismCache = this.prismCache || new WeakMap();
+          let pc = this.prismCache.get(p.ring);
+          if (!pc || pc.proj !== proj || pc.terrain !== this.data.terrain) {
+            const r = p.ring.map(([lon, lat]) => [proj.x(lon), proj.y(lat)]);
+            if (r.length > 1 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1]) r.pop();
+            let b = Infinity;
+            r.forEach(([x, z]) => { b = Math.min(b, this.yAt(x, z)); });
+            let t = [];
+            if (r.length >= 3) { try { t = THREE.ShapeUtils.triangulateShape(r.map(([x, z]) => new THREE.Vector2(x, z)), []); } catch { t = []; } }
+            pc = { proj, terrain: this.data.terrain, ring: r, base: b + 0.2 * u, tris: t };
+            this.prismCache.set(p.ring, pc);
+          }
+          const ring = pc.ring;
+          if (ring.length < 3) return;
+          // base map: a footprint marked `piles` that stands over the water is held at the model's floor
+          // (minBase), with a post down to the water at each corner
+          let mx = 0, mz = 0;
+          ring.forEach(([x, z]) => { mx += x / ring.length; mz += z / ring.length; });
+          const overWater = !!(m.piles && this.shore && this.shore.inland(mx, mz) <= 0);
+          const base = overWater ? Math.max(pc.base, (m.minBase || 0) * u + 0.3 * u) : pc.base;
+          const top = base + Math.max(0.05, p.h) * u;
+          const n = ring.length;
+          for (let i = 0; i < n; i++) {
+            const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n];
+            tri.push(ax, base, az, bx, base, bz, bx, top, bz, ax, base, az, bx, top, bz, ax, top, az);
+            edge.push(ax, base, az, bx, base, bz, ax, top, az, bx, top, bz, ax, base, az, ax, top, az);
+            if (overWater) edge.push(ax, base, az, ax, this.yAt(ax, az), az);
+          }
+          pc.tris.forEach(([i, j, k]) => tri.push(ring[i][0], top, ring[i][1], ring[j][0], top, ring[j][1], ring[k][0], top, ring[k][1]));
+          return;
+        }
         const a = (p.rot || 0) * Math.PI / 180, cr = Math.cos(a), sr = Math.sin(a), z0 = p.z0 || 0;
         // each part stands on the ground under its own middle, and no lower than the model's floor
         // (minBase, metres above the sea), so a yard built out over the water sits on its piles
@@ -1561,9 +1645,16 @@ export class District3D {
         }
       });
     });
-    this.gModels.add(new THREE.Mesh(this.flatGeo(tri), this.matModel));
-    const l = this.fatLines(new Float32Array(edge), this.matModelEdge);
+    this.matModelBy = this.matModelBy || {};
+    tris.forEach((arr, key) => {
+      if (!arr.length) return;
+      const mat = !key ? this.matModel : (this.matModelBy[key] = this.matModelBy[key] || new THREE.MeshBasicMaterial({ color: new THREE.Color(key), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+      this.gModels.add(new THREE.Mesh(this.flatGeo(arr), mat));
+    });
+    const l = this.fatLines(new Float32Array(edgeInk), this.matModelEdge);
     if (l) this.gModels.add(l);
+    const lf = this.fatLines(new Float32Array(edgeFaint), this.matModelEdgeFaint);
+    if (lf) this.gModels.add(lf);
   }
 
   // base map: each site as a ring on the ground with a stem rising from its centre, where its label sits;
@@ -1574,9 +1665,16 @@ export class District3D {
     const m = this.marks;
     if (!m) return;
     const proj = this.proj, u = 1 / this.mPerUnit, lift = 1.5 * u;
-    const RING = 22 * u, STEM = 55 * u, solid = [];
+    const RING = 22 * u, STEM = 55 * u, solid = [], stems = [];
     m.sites.forEach((site) => {
       const x = proj.x(site.lon), z = proj.y(site.lat), y = this.yAt(x, z) + lift;
+      if (site.stem != null) {
+        // base map: no ring; a dotted stem from the roof (`stem` metres up) to the name
+        const top = y + site.stem * u;
+        stems.push(x, top, z, x, top + STEM * 0.9, z);
+        this.markTops.push({ x, y: top + STEM * 0.9, z, label: site.label });
+        return;
+      }
       for (let k = 0; k < 48; k++) {
         const a = k / 48 * Math.PI * 2, b = (k + 1) / 48 * Math.PI * 2;
         const ax = x + Math.cos(a) * RING, az = z + Math.sin(a) * RING, bx = x + Math.cos(b) * RING, bz = z + Math.sin(b) * RING;
@@ -1587,6 +1685,9 @@ export class District3D {
     });
     const ring = this.fatLines(new Float32Array(solid), this.matMark);
     if (ring) this.gMarks.add(ring);
+    this.matMarkStem.dashSize = 2.2 * u; this.matMarkStem.gapSize = 2.6 * u;
+    const stem = this.fatLines(new Float32Array(stems), this.matMarkStem);
+    if (stem) this.gMarks.add(stem);
     // a polyline laid over the ground, with a point at least every 15 m so it follows the terrain
     const drape = (out, pts) => {
       for (let i = 1; i < pts.length; i++) {
@@ -1699,7 +1800,7 @@ export class District3D {
     const w = this.wrap.clientWidth || 600, h = this.wrap.clientHeight || Math.max(380, Math.round(w * 0.64));
     this.renderer.setSize(w, h, false);
     this.matEdge.resolution.set(w, h); this.matEdgeSro.resolution.set(w, h); this.matWin.resolution.set(w, h); this.matCurb.resolution.set(w, h); this.matRailPen.resolution.set(w, h);
-    this.matMark.resolution.set(w, h); this.matMarkPath.resolution.set(w, h); this.matMarkLine.resolution.set(w, h); this.matModelEdge.resolution.set(w, h); this.matMarkDot.resolution.set(w, h);
+    this.matMark.resolution.set(w, h); this.matMarkPath.resolution.set(w, h); this.matMarkLine.resolution.set(w, h); this.matModelEdge.resolution.set(w, h); this.matModelEdgeFaint.resolution.set(w, h); this.matMarkStem.resolution.set(w, h); this.matMarkDot.resolution.set(w, h);
     if (this.gFine) this.gFine.children.forEach((o) => o.material && o.material.resolution && o.material.resolution.set(w, h));
     this.persp.aspect = w / h;
     this.persp.updateProjectionMatrix();

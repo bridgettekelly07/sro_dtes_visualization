@@ -71,6 +71,8 @@
   export function groundText(labels) { d3 && d3.setGroundText(labels); }
   export function fine(groups) { d3 && d3.setFine(groups); }
   export function burn(area) { d3 && d3.setBurn(area); }
+  export function land(mask, ms) { d3 && d3.setLand(mask, ms); }
+  export function edges(e) { d3 && d3.setModelEdge(e); }
   export function burnReach(m) { d3 && d3.setBurnReach(m); }
   export function burnOpacity(o) { d3 && d3.setBurnOpacity(o); }
   // the land before the city, or the city: a rebuild, so it is queued like the others
@@ -91,5 +93,7 @@
     font-family: "din-2014-narrow", "DIN 2014 Narrow", "DIN Condensed", sans-serif; font-size: 11px; color: var(--ink);
     text-shadow: 0 1px 3px var(--surface), 0 0 6px var(--surface); }
   .map-3d-labels :global(.lbl.sel) { font-weight: 600; font-size: 12.5px; }
-  .map-3d-labels :global(.lbl.mark) { font-family: "din-2014", "DIN 2014", "DIN Alternate", sans-serif; font-size: 11.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
+  .map-3d-labels :global(.lbl.mark) { font-family: "din-2014", "DIN 2014", "DIN Alternate", sans-serif; font-size: 11.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+    /* base map: white on a black tab, so the name reads over the drawing */
+    color: #fff; background: #1f1f1f; padding: 2px 6px 1px; text-shadow: none; }
 </style>

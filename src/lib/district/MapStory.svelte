@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * A chapter told on the map. The map stays fixed behind the page; the text
+   * The story told on the map, chapter after chapter. The map stays fixed behind the page; the text
    * for each stop scrolls past on the left, and as a stop reaches the middle of
    * the window the camera flies to its view and its sites appear on the ground.
    *
@@ -18,12 +18,18 @@
   import { PARK } from './parkShade.js'
   import { shoreOutline } from './terrain.js'
   import { layoutAnnotation, type GroundLabel } from './annotate'
-  import type { MapChapter, Site } from '../data/stops'
+  import type { LandTime, MapChapter, Site } from '../data/stops'
   import { chapters } from '../data/chapters'
   import { sourceById } from '../data/sources'
-  import { models as buildingModels } from '../data/models'
+  import { models as buildingModels, type Part } from '../data/models'
 
-  let { chapter }: { chapter: MapChapter } = $props()
+  let { story }: { story: MapChapter[] } = $props()
+
+  // Every card of every chapter in one run, and which chapter each belongs to.
+  const stops = $derived(story.flatMap((c) => c.stops))
+  const chapterOf = $derived(story.flatMap((c) => c.stops.map(() => c)))
+  const firstOf = $derived(story.map((c) => stops.indexOf(c.stops[0])))
+  const numberOf = (id: string) => chapters.find((c) => c.id === id)?.index ?? 0
 
   // Charcoal washes: grey, quiet, and the water darkening away from shore.
   WATER.tint = 0
@@ -40,6 +46,9 @@
   const oldShore: number[][][] = []
   let todayShore: number[][][] = []
   let thenShore: number[][][] = []
+  // land-and-water masks by time: the 1880s one is loaded with the map, the others after
+  const lands: Partial<Record<LandTime, unknown>> = {}
+  const shoreLines: Partial<Record<LandTime, number[][][]>> = {}
   // the lettering present at every stop: the two shorelines' names
   let baseLabels: GroundLabel[] = []
   const OLD_SHORE = 'SHORELINE 1880S'
@@ -48,7 +57,7 @@
     await Promise.all([document.fonts.load('700 40px "din-2014-narrow"'), document.fonts.load('700 96px "din-2014"')]).catch(() => {})
     const loaded = await loadAll()
     let terrain = loaded.terrain
-    if (chapter.oldShoreline && terrain) {
+    if (story.some((c) => c.oldShoreline) && terrain) {
       // Before swapping, trace today's shoreline from today's mask, to dot it in over the older one.
       // The outline comes in mask cells (x east, y south from the north-west corner).
       const [west, south, east, north] = terrain.bbox
@@ -62,6 +71,21 @@
       try {
         const response = await fetch(`${import.meta.env.BASE_URL}data/district/land-1880s.json`)
         terrain = { ...terrain, land: await response.json() }
+        lands['1880s'] = terrain.land
+        // the shorelines of later times, swapped in by the cards that need them
+        for (const key of ['1887', '1900', '1912', '1917'] as const) {
+          fetch(`${import.meta.env.BASE_URL}data/district/land-${key}.json`)
+            .then((r) => r.json())
+            .then((m) => {
+              lands[key] = m
+              // its shoreline as lines too, for lettering along it
+              shoreLines[key] = (shoreOutline({ ...terrain, land: m }) ?? []).map((ring: number[][]) => {
+                const line = ring.filter((_, i) => i % 3 === 0).map(([x, y]) => [west + (x / nx) * (east - west), north - (y / ny) * (north - south)])
+                return [...line, line[0]]
+              })
+            })
+            .catch(() => {})
+        }
         // the 1880s water's edge as lines too, to letter its name along it
         thenShore = (shoreOutline(terrain) ?? []).map((ring: number[][]) => {
           const line = ring.filter((_, i) => i % 3 === 0).map(([x, y]) => [west + (x / nx) * (east - west), north - (y / ny) * (north - south)])
@@ -77,12 +101,14 @@
   const ready = $derived(!!(data && proj && data.surveyed.length && data.foot))
   const colourOf = () => hexOf(css('--m3-bldg'))
 
-  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][]) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
+  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
   let mapReady = $state(false)
   let fail = $state('')
   let active = $state(0)
+  // the year a stop's growth has reached, shown large over the map while it runs
+  let yearShown = $state<number | null>(null)
 
-  const siteById = $derived(new Map(chapter.sites.map((s) => [s.id, s])))
+  const siteById = $derived(new Map(story.flatMap((c) => c.sites).map((s) => [s.id, s])))
   const event = (id?: string) => chapters.flatMap((c) => c.events).find((e) => e.id === id)
 
   // The stop nearest the middle of the window is the active one.
@@ -107,9 +133,11 @@
   })
 
   // Move the camera and redraw the marks whenever the active stop changes.
-  const routeById = $derived(new Map(chapter.routes.map((r) => [r.id, r])))
+  const routeById = $derived(new Map(story.flatMap((c) => c.routes).map((r) => [r.id, r])))
   let first = true
   let drawing = 0 // the route animation in flight, so a newer stop can cancel it
+  // what the last card left standing, so the next can sink it as it arrives
+  let lastShown: { lon: number; lat: number; bearing: number; parts: Part[]; minBase: number; piles?: boolean; fill?: string; faint?: boolean }[] = []
 
   /** The first `share` of a line, by length, ending on an interpolated point. */
   function partial(points: [number, number][], share: number): number[][] {
@@ -130,9 +158,14 @@
     layout ? layout.metresPerPx : (stop.view.dist * 2 * Math.tan((20 * Math.PI) / 180)) / window.innerHeight
 
   $effect(() => {
-    const stop = chapter.stops[active]
+    const stop = stops[active]
     if (!mapReady || !map || !stop) return
     const mapNow = map
+    // the shoreline of the card's time
+    const landNow = lands[stop.land ?? '1880s']
+    // a change of shore between cards slides in as the camera flies
+    if (landNow) mapNow.land(landNow, first ? 0 : 1600)
+    mapNow.edges(stop.edges)
     const sites = stop.sites.map((id) => siteById.get(id)).filter((s): s is Site => !!s)
     const pairs = (stop.paths ?? []).map((pair) =>
       pair.map((id) => siteById.get(id)).filter((s): s is Site => !!s).map((s) => [s.lon, s.lat]),
@@ -165,8 +198,11 @@
     mapNow.burn(burnArea ? { poly: burnArea, from: burnFrom ?? burnArea[0], colour: '#2a2a2a', opacity: BURN_OPACITY, reach: burnFrom ? 0 : 1e6 } : null)
     // Streets of the time: their edges, cut into block outlines, as the lightest line on the map.
     const streetEdges = stop.context?.streets ?? []
-    const streetStyle = { width: 0.45, colour: '#a6a6a6', opacity: 0.55 }
-    const streetGroup = streetEdges.length ? [{ lines: streetEdges, ...streetStyle }] : []
+    const streetStyle = { width: 0.45, colour: '#a6a6a6', opacity: 0.55, ...(stop.context?.streetStyle ?? {}) }
+    const streetGroup = [
+      ...(stop.context?.parcels?.length ? [{ lines: stop.context.parcels, width: 0.35, colour: '#b9b9b9', opacity: 0.55 }] : []),
+      ...(streetEdges.length ? [{ lines: streetEdges, ...streetStyle }] : []),
+    ]
     // A stop can hold back its subheadings until its buildings have risen.
     const labelsLater = !!stop.labelsAfterRise && !!stop.rises?.length
     const featureFine = layout ? layout.featureFine : []
@@ -246,6 +282,10 @@
     const mPerPx = mPerPxOf(layout, stop)
     const mPerDegLon = 111_200 * Math.cos((49.285 * Math.PI) / 180)
     const base = baseLabels.map((l) => {
+      // a stop can name the shoreline it shows, near where it is seen
+      if (l.text === OLD_SHORE && stop.shoreLabel) return { ...l, lines: shoreLines[stop.land ?? '1880s'] ?? l.lines, text: stop.shoreLabel.text, near: stop.shoreLabel.near, size: mPerPx * 20, offset: mPerPx * 8, colour: '#3a3a3a', tracking: 0.14 }
+      // the 1880s shore keeps its name in 1887: only the railway's roadbed has been added to it
+      if (l.text === OLD_SHORE && !['1880s', '1887'].includes(stop.land ?? '1880s')) return { ...l, text: '' }
       if (l.text !== OLD_SHORE) return layout ? { ...l, size: Math.min(l.size, mPerPx * 13), offset: Math.min(l.offset, mPerPx * 6.5) } : l
       // The 1880s shoreline's name: small and grey, and begun just outside an annotation's rings so it stays in frame.
       const a = stop.annotation
@@ -254,10 +294,13 @@
       const near = a ? [a.centre[0] + (a.radii[a.radii.length - 1] + mPerPx * 10) / mPerDegLon, a.centre[1]] : l.near
       return { ...l, near, size: mPerPx * 7.5, offset: mPerPx * 5, tracking: 0.06 }
     })
-    const own = (stop.lettering ?? []).map((l) => {
-      const line = [l.at, [l.at[0] + 0.08, l.at[1]]]
-      return { text: l.text, lines: [line], near: l.at, size: mPerPx * l.px, offset: 0, colour: l.colour ?? '#ffffff', forward: true, tracking: l.tracking }
+    const ownAll = (stop.lettering ?? []).map((l) => {
+      const line = l.along ?? [l.at, [l.at[0] + 0.08, l.at[1]]]
+      return { text: l.text, lines: [line], near: l.at, size: mPerPx * l.px, offset: 0, colour: l.colour ?? '#ffffff', forward: true, tracking: l.tracking, later: !!l.later }
     })
+    // lettering marked `later` waits for the stop's growth to finish
+    const holdLetters = !!stop.growth && stop.growth.to > stop.growth.from && ownAll.some((l) => l.later)
+    const own = holdLetters ? ownAll.filter((l) => !l.later) : ownAll
     const names = (stop.context?.names ?? []).map((n) => ({ text: n.text, lines: [n.along], near: n.along[0], size: mPerPx * 6.5, offset: mPerPx * 3, colour: '#666666', forward: true, tracking: 0.12 }))
     const textNow = [...base.filter((l) => l.text), ...own, ...names, ...(layout ? layout.labels : [])]
     mapNow.groundText(labelsLater ? textNow : [...textNow, ...featureLabels])
@@ -265,14 +308,56 @@
     first = false
 
     // The buildings standing at this stop, each placed at its site.
-    const standing = (stop.models ?? []).flatMap(([siteId, modelId]) => {
+    const standing = (stop.models ?? []).flatMap(([siteId, modelId, fill]) => {
       const site = siteById.get(siteId)
       const model = buildingModels.find((b) => b.id === modelId)
       if (!site || !model) return []
       const [lon, lat] = model.anchor ?? [site.lon, site.lat]
-      return [{ lon, lat, bearing: (model.bearing * Math.PI) / 180, parts: model.parts, minBase: model.minBase ?? 0, piles: model.piles ?? false }]
+      return [{ lon, lat, bearing: (model.bearing * Math.PI) / 180, parts: model.parts, minBase: model.minBase ?? 0, piles: model.piles ?? false, fill, faint: false }]
     })
+    // and, faintly, any buildings the stop draws as context
+    for (const b of stop.faint ?? []) standing.push({ lon: b.lon, lat: b.lat, bearing: 0, parts: b.parts, minBase: b.minBase ?? 0, piles: b.piles ?? false, fill: b.fill, faint: true })
     const run = ++drawing
+    // The scene on its way out: whatever the last card left standing that this one does not keep sinks
+    // into the ground as the camera flies, so one card's buildings do not simply vanish into the next's.
+    type Shown = { lon: number; lat: number; bearing: number; parts: Part[]; minBase: number; piles?: boolean; fill?: string; faint?: boolean }
+    const keyOf = (m: Shown) => `${m.lon.toFixed(6)},${m.lat.toFixed(6)},${m.parts.length}`
+    const kept = new Set(standing.map(keyOf))
+    const outgoing = lastShown.filter((m) => !kept.has(keyOf(m)))
+    lastShown = []
+    let current: Shown[] = standing
+    const SINK_MS = 1100
+    const sinkFrom = performance.now()
+    const sunk = (m: Shown, k: number): Shown => ({
+      ...m,
+      parts: m.parts.map((p) =>
+        p.kind === 'box' ? { ...p, h: Math.max(0.05, p.h * k), z0: (p.z0 ?? 0) * k }
+        : p.kind === 'prism' ? { ...p, h: Math.max(0.05, p.h * k) }
+        : { ...p, eave: Math.max(0.05, p.eave * k), ridge: Math.max(0.06, p.ridge * k) },
+      ),
+    })
+    let sinking = outgoing.length > 0 && !first
+    const showModels = (list: Shown[]) => {
+      current = list
+      lastShown = list
+      if (!sinking) return mapNow.models(list)
+      const k = 1 - Math.max(0, Math.min(1, (performance.now() - sinkFrom) / SINK_MS))
+      const e = k * k * (3 - 2 * k)
+      mapNow.models([...list, ...outgoing.map((m) => sunk(m, e))])
+    }
+    if (sinking) {
+      const sink = (now: number) => {
+        if (run !== drawing) return
+        if (now - sinkFrom >= SINK_MS) {
+          sinking = false
+          showModels(current)
+          return
+        }
+        showModels(current)
+        requestAnimationFrame(sink)
+      }
+      requestAnimationFrame(sink)
+    }
     // Anything that travels in: placed at its start, then moved to its end once the camera has settled.
     const arriving = (stop.arrivals ?? []).flatMap((a) => {
       const model = buildingModels.find((b) => b.id === a.model)
@@ -281,6 +366,7 @@
       const north = a.to[1] - a.from[1]
       const k = a.scale ?? 1
       const parts = model.parts.map((part) => {
+        if (part.kind === 'prism') return part
         const big = { ...part, x: part.x * k, y: part.y * k, w: part.w * k, d: part.d * k }
         if (big.kind === 'box') return { ...big, h: big.h * k, z0: (big.z0 ?? 0) * k }
         return { ...big, eave: big.eave * k, ridge: big.ridge * k }
@@ -319,7 +405,10 @@
     }
     const heightened = (r: (typeof rising)[number], k: number) => {
       const p = r.part
-      const q = p.kind === 'box' ? { ...p, h: Math.max(0.05, p.h * k), z0: (p.z0 ?? 0) * k } : { ...p, eave: Math.max(0.05, p.eave * k), ridge: Math.max(0.06, p.ridge * k) }
+      const q =
+        p.kind === 'box' ? { ...p, h: Math.max(0.05, p.h * k), z0: (p.z0 ?? 0) * k }
+        : p.kind === 'prism' ? { ...p, h: Math.max(0.05, p.h * k) }
+        : { ...p, eave: Math.max(0.05, p.eave * k), ridge: Math.max(0.06, p.ridge * k) }
       return { lon: r.lon, lat: r.lat, bearing: r.bearing, parts: [q], minBase: r.minBase, piles: r.piles }
     }
     const STREETS_MS = 2600
@@ -333,7 +422,7 @@
       }
       rising.sort((a, b) => at(a) - at(b))
     }
-    mapNow.models([...standing, ...placed(0), ...burning.map((r) => heightened(r, 1))])
+    showModels([...standing, ...placed(0), ...burning.map((r) => heightened(r, 1))])
     if (burnFrom || rising.length || streetsFrom) {
       const start = performance.now() + flight * 0.8
       const riseAt = start + (burnFrom ? BURN_MS + 900 : streetsFrom ? STREETS_MS * 0.55 : 0)
@@ -368,7 +457,7 @@
           const k = 1 - Math.max(0, Math.min(1, (reach - metresFrom(r, burnFrom)) / 25))
           return k > 0.02 ? [heightened(r, k)] : []
         })
-        if (rising.length || burning.length) mapNow.models([...standing, ...left, ...up])
+        if (rising.length || burning.length) showModels([...standing, ...left, ...up])
         const end = riseAt + each * 0.7 + rising.length * gap + each
         // once the last building is up, the subheadings and their leaders are drawn in
         if (labelsLater && !labelled && now >= end) {
@@ -393,23 +482,93 @@
       requestAnimationFrame(lay)
     }
 
+    // Growth: buildings come up as a running year passes the year each was built. Those built before
+    // `from` stand from the start; those built after `to`, or with no year, are left out.
+    const growth = stop.growth
+    if (growth) {
+      // a building at full height is made once and reused, so a count over thousands stays smooth
+      const full = new Map<(typeof growth.buildings)[number], ReturnType<typeof scaled>>()
+      const scaled = (b: (typeof growth.buildings)[number], k: number) => ({
+        lon: b.lon,
+        lat: b.lat,
+        bearing: 0,
+        parts: b.parts.map((p) => ({ ...p, h: Math.max(0.05, p.h * k) })),
+        minBase: b.minBase ?? 0,
+        piles: b.piles ?? false,
+        fill: b.fill,
+      })
+      const asModel = (b: (typeof growth.buildings)[number], k: number) => {
+        if (k < 1) return scaled(b, k)
+        let m = full.get(b)
+        if (!m) full.set(b, (m = scaled(b, 1)))
+        return m
+      }
+      const dated = growth.buildings.filter((b) => b.built != null && b.built <= growth.to)
+      const before = dated.filter((b) => (b.built as number) < growth.from)
+      const during = dated.filter((b) => (b.built as number) >= growth.from)
+      const counting = growth.to > growth.from
+      yearShown = counting ? growth.from : null
+      showModels([...standing, ...before.map((b) => asModel(b, 1)), ...(counting ? [] : during.map((b) => asModel(b, 1)))])
+      let landShown = stop.land ?? '1880s'
+      let linesShown = 0
+      if (counting) {
+        const ms = growth.ms ?? 7000
+        const t0 = performance.now() + flight * 0.8 + (growth.delay ?? 0)
+        const perYear = ms / (growth.to - growth.from + 1)
+        const grow = (now: number) => {
+          if (run !== drawing) return
+          const years = Math.max(0, (now - t0) / perYear)
+          yearShown = Math.min(growth.to, growth.from + Math.floor(years))
+          // and the shoreline changes as the count passes the year it changed
+          const due = (growth.landAt ?? []).filter(([y]) => (yearShown as number) >= y).pop()
+          if (due && lands[due[1]] && landShown !== due[1]) {
+            landShown = due[1]
+            mapNow.land(lands[due[1]], 2800)   // the shore slides out over about three years of the count
+          }
+          // and lines laid on new ground come in as the count passes their year
+          const dueLines = (growth.linesAt ?? []).filter(([y]) => (yearShown as number) >= y)
+          if (dueLines.length !== linesShown) {
+            linesShown = dueLines.length
+            mapNow.fine([...baseFine, ...trackFine(1), ...dueLines.flatMap(([, g]) => g)])
+          }
+          const up = during.flatMap((b) => {
+            // each building takes about a year and a half of the count to reach its height
+            const k = Math.max(0, Math.min(1, (years - ((b.built as number) - growth.from)) / 1.5))
+            return k > 0 ? [asModel(b, 1 - Math.pow(1 - k, 3))] : []
+          })
+          showModels([...standing, ...before.map((b) => asModel(b, 1)), ...up])
+          if (years < growth.to - growth.from + 1.5) requestAnimationFrame(grow)
+          // the names held back come in once the last buildings are up
+          else {
+            if (holdLetters) mapNow.groundText([...textNow, ...ownAll.filter((l) => l.later), ...(labelsLater ? [] : featureLabels)])
+            if (stop.marksAfterGrowth) mapNow.marks(sites, [...pairs, ...still], shore)
+          }
+        }
+        requestAnimationFrame(grow)
+      }
+    } else {
+      yearShown = null
+    }
+
     if (arriving.length) {
       const [from, duration] = [performance.now() + flight * 0.8, 9000]
       const glide = (now: number) => {
         if (run !== drawing) return
         const t = Math.max(0, Math.min(1, (now - from) / duration))
-        mapNow.models([...standing, ...placed(1 - Math.pow(1 - t, 2))]) // slowing as it nears the shore
+        showModels([...standing, ...placed(1 - Math.pow(1 - t, 2))]) // slowing as it nears the shore
         if (t < 1) requestAnimationFrame(glide)
       }
       requestAnimationFrame(glide)
     }
 
+    // a card can hold its site marks back until its count has run
+    const sitesNow = stop.marksAfterGrowth && stop.growth && stop.growth.to > stop.growth.from ? [] : sites
     if (!moving.length) {
-      mapNow.marks(sites, [...pairs, ...still], shore)
+      mapNow.marks(sitesNow, [...pairs, ...still], shore)
       return
     }
     // A route is drawn from its first point to its last, starting as the camera settles.
-    mapNow.marks(sites, [...pairs, ...still], shore)
+    mapNow.marks(sitesNow, [...pairs, ...still], shore)
     const [delay, duration] = [flight * 0.6, 3200]
     const start = performance.now() + delay
     const frame = (now: number) => {
@@ -434,7 +593,7 @@
         mode="tenure"
         theme="light"
         plain
-        bare={chapter.bare}
+        bare={story.every((c) => c.bare)}
         {colourOf}
         bandsOf={() => null}
         sel={null}
@@ -455,6 +614,10 @@
         }}
       />
     {/if}
+    <!-- the year a stop's growth has reached -->
+    {#if yearShown !== null}
+      <p class="font-display pointer-events-none absolute right-8 bottom-6 text-7xl font-semibold tracking-tight text-[var(--ink)]/75 tabular-nums">{yearShown}</p>
+    {/if}
     {#if fail || !mapReady}
       <p class="absolute right-4 bottom-4 rounded-md bg-white/85 px-3 py-1.5 text-xs text-[var(--ink-2)]">
         {fail ? `The map could not start: ${fail}` : 'Drawing the map…'}
@@ -464,23 +627,23 @@
 
   <ChapterRail
     {chapters}
-    current={chapter.chapterId}
-    cards={chapter.stops.map((s) => ({ title: s.title, kicker: s.kicker }))}
-    {active}
-    onGo={(i) => sections[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+    current={chapterOf[active]?.chapterId ?? ''}
+    cards={(chapterOf[active]?.stops ?? []).map((s) => ({ title: s.title, kicker: s.kicker }))}
+    active={active - stops.indexOf(chapterOf[active]?.stops[0])}
+    onGo={(i) => sections[stops.indexOf(chapterOf[active]?.stops[0]) + i]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
   />
 
   <!-- The story: one tall section per stop, pulled up over the map -->
   <div class="relative -mt-[100dvh]">
-    {#each chapter.stops as stop, i (stop.id)}
+    {#each stops as stop, i (stop.id)}
       {@const ev = event(stop.eventId)}
       {@const source = stop.sourceId ? sourceById.get(stop.sourceId) : null}
       <section bind:this={sections[i]} data-index={i} class="flex min-h-dvh snap-center snap-always items-center px-4 py-24 md:pr-10 md:pl-16">
         <article
           class="w-full max-w-sm rounded-lg bg-white/92 p-6 shadow-sm backdrop-blur-sm transition-opacity duration-500 {i === active ? 'opacity-100' : 'opacity-40'}"
         >
-          {#if i === 0}
-            <p class="font-display mb-4 text-xs font-semibold tracking-wide text-[var(--ink-3)] uppercase">Chapter 1 · {chapter.title}</p>
+          {#if firstOf.includes(i)}
+            <p class="font-display mb-4 text-xs font-semibold tracking-wide text-[var(--ink-3)] uppercase">Chapter {numberOf(chapterOf[i].chapterId)} · {chapterOf[i].title}</p>
           {/if}
           <p class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase tabular-nums">{stop.kicker}</p>
           <h2 class="font-display mt-1 text-2xl font-semibold tracking-tight">{stop.title}</h2>

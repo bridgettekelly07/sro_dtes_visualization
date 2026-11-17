@@ -10,11 +10,15 @@ import { millSite1889, millSiteAnchor, millSiteEarly } from './millSite'
 import { granvilleAnchor, granvilleBuildings1870 } from './granville1870'
 import { granvilleBuildings1885, granvilleFootprints1885 } from './granville1885'
 import { byrnesBlock1889, granvilleBuildings1889 } from './granville1889'
+import landmarks from './landmarks.json'
+import goad1912 from './goad1912.json'
 
 /** One piece of a building. Distances are metres; x and y are east and north of the site before the group is turned. */
 export type Part =
   | { kind: 'gable' | 'hip'; x: number; y: number; w: number; d: number; eave: number; ridge: number; rot?: number }
   | { kind: 'box'; x: number; y: number; w: number; d: number; h: number; rot?: number; z0?: number; legs?: number; drop?: number; afloat?: boolean }
+  /** A building raised straight up from its real footprint: `ring` is [lon, lat] points, `h` the height in metres. x and y are unused. */
+  | { kind: 'prism'; x: number; y: number; ring: [number, number][]; h: number }
 
 export interface BuildingModel {
   id: string
@@ -36,7 +40,59 @@ export interface BuildingModel {
   piles?: boolean
 }
 
+const prisms = (key: keyof typeof landmarks): Part[] =>
+  landmarks[key].parts.map((p) => ({ kind: 'prism' as const, x: 0, y: 0, ring: p.ring as [number, number][], h: p.h }))
+
+// Every building of 1912, raised to an assumed height: brick at three storeys, wood at two.
+const goadFootprints = (rings: number[][][], h: number): Part[] =>
+  rings.map((ring) => ({ kind: 'prism' as const, x: 0, y: 0, ring: ring as [number, number][], h }))
+
 export const models: BuildingModel[] = [
+  {
+    id: 'goad-1912',
+    name: 'Every building in 1912',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [-123.1, 49.281],
+    evidence: `Footprints read by colour from Goad's 1912 atlas, as georectified by the City of Vancouver: pink is brick, yellow is wood. Heights are assumed, as the atlas gives none: brick at about three storeys (11 m), wood at two (7 m). Neighbouring buildings that share walls sometimes read as one footprint.`,
+    parts: [...goadFootprints(goad1912.brick, 11), ...goadFootprints(goad1912.frame, 7)],
+  },
+  {
+    id: 'carnegie-1903',
+    name: 'Carnegie Library, 1903',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [landmarks.carnegie.lon, landmarks.carnegie.lat],
+    evidence: `The building as it stands today, raised from the City's footprint and 2009 LiDAR height. It is the 1903 library.`,
+    parts: prisms('carnegie'),
+  },
+  {
+    id: 'woodwards-1903',
+    name: "Woodward's, Hastings and Abbott",
+    bearing: 0,
+    basis: 'type',
+    anchor: [landmarks.woodwards.lon, landmarks.woodwards.lat],
+    evidence: `Today's footprints at the corner of Hastings and Abbott, standing in for the store Woodward's established there in 1903. The store was enlarged many times and largely rebuilt in 2010; its 1903 outline has not been traced.`,
+    parts: prisms('woodwards'),
+  },
+  {
+    id: 'bcer-1912',
+    name: 'BC Electric Railway terminal, as drawn in 1912',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [landmarks.bcer.lon, landmarks.bcer.lat],
+    evidence: `The brick building at the junction of Hastings and Carrall in Goad's 1912 atlas, marked as the B.C. Electric Railway Company's offices, with the track curving into it. Raised to six storeys, about 24 m, as the heritage register describes it. It is footprint 314 of the atlas's brick buildings in goad1912.json, so it must be checked if that file is rebuilt.`,
+    parts: [{ kind: 'prism', x: 0, y: 0, ring: goad1912.brick[314] as [number, number][], h: 24 }],
+  },
+  {
+    id: 'bcer-1911',
+    name: 'BC Electric Railway terminal, 1911',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [landmarks.bcer.lon, landmarks.bcer.lat],
+    evidence: `Today's footprint at 425 Carrall Street. The 2009 LiDAR height there is not the building's, so it is drawn at six storeys, about 24 m, as the heritage register describes it. The footprint may take in more than the terminal.`,
+    parts: prisms('bcer'),
+  },
   {
     id: 'hastings-mill-1889',
     name: 'Hastings Mill, as surveyed in 1889',

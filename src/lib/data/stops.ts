@@ -14,6 +14,8 @@ export interface Site {
   located: boolean
   /** How the position was arrived at, and what is still uncertain about it. */
   basis: string
+  /** Marked without a ring: a dotted stem rises from this many metres up (the roof) to the name. */
+  stem?: number
 }
 
 /** An archival photograph shown at a stop. The file lives in public/images/. */
@@ -31,6 +33,8 @@ export interface Photo {
   ref: string
   /** The archive's record for the photograph. */
   recordUrl: string
+  /** The photograph's entry in sources.ts. */
+  sourceId?: string
 }
 
 /** Where the camera sits for a stop. */
@@ -66,12 +70,33 @@ export interface Stop {
    * Names lettered flat on the map at this stop only, each running east from `at` ([lon, lat]).
    * `px` is the height of the letters on screen; `colour` defaults to white, for names on water.
    */
-  lettering?: { text: string; at: [number, number]; px: number; colour?: string; tracking?: number }[]
+  /** Words laid on the ground. `later`: held back until the stop's growth has finished. */
+  lettering?: { text: string; at: [number, number]; px: number; colour?: string; tracking?: number; along?: [number, number][]; later?: boolean }[]
+  /** Names the shoreline drawn at this stop, laid along it near `near`. */
+  shoreLabel?: { text: string; near: [number, number] }
   /**
    * Buildings that rise from the ground once the stop has arrived, after any burn has spread:
    * each a site id and model id as in `models`, in the order they rise.
    */
   rises?: [string, string][]
+  /**
+   * Buildings that come up as a running year, shown large over the map, passes the year each was built.
+   * Those built before `from` stand from the start; those after `to` or with no year are left out. With
+   * `from` equal to `to` they simply stand, without the count.
+   */
+  growth?: {
+    from: number
+    to: number
+    ms?: number
+    /** How long to wait, once the camera has settled, before the count starts. */
+    delay?: number
+    buildings: GrowthBuilding[]
+    landAt?: [number, LandTime][]
+    /** Lines on the ground that appear once the count passes a year: roads and railways on new fill. */
+    linesAt?: [number, { lines: number[][][]; width?: number; colour?: string; opacity?: number }[]][]
+  }
+  /** Whose shoreline the map shows at this card: the 1880s (the default), 1912 or after 1917. */
+  land?: LandTime
   /** Hold back the annotation's subheadings and leaders until the buildings in `rises` are up. */
   labelsAfterRise?: boolean
   /** Buildings standing as the stop opens that a burn takes down as it reaches them, as in `models`. */
@@ -80,21 +105,42 @@ export interface Stop {
   risesFrom?: [number, number]
   /** Archival photographs shown in the stop's card. */
   photos?: Photo[]
-  /** Buildings standing at this stop: each a site id and the id of a model in models.ts. */
-  models?: [string, string][]
+  /** Buildings standing at this stop: each a site id, the id of a model in models.ts and, optionally, a fill colour to pick it out. */
+  models?: [string, string, string?][]
+  /** The weight and colour of the buildings' edges on this card, where the default ink is too heavy. */
+  edges?: { width?: number; colour?: string }
+  /** Hold the site marks back until the growth count has finished. */
+  marksAfterGrowth?: boolean
+  /** Buildings drawn faintly, as context: the rest of the city, where it is a stand-in rather than a record. */
+  faint?: GrowthBuilding[]
   /** Things that travel in as the stop arrives: a model from models.ts, moved from one [lon, lat] to another. */
   arrivals?: { model: string; from: [number, number]; to: [number, number]; scale?: number }[]
   /**
    * Faint lines and names from a period map, laid on the ground to give the place its surroundings.
    * `note` says which map, of what date, and how it was put on the ground; it is shown in the card.
    */
-  context?: { lines: [number, number][][]; minor?: [number, number][][]; burnArea?: [number, number][]; burnFrom?: [number, number]; /** Where the streets draw themselves in from, nearest first; left out, they are simply there. */ streetsFrom?: [number, number]; /** Street edges, already cut at the crossings into block outlines. */ streets?: number[][][]; names: { text: string; along: [number, number][] }[]; note: string; sourceId: string }
+  context?: { lines: [number, number][][]; minor?: [number, number][][]; burnArea?: [number, number][]; burnFrom?: [number, number]; /** Where the streets draw themselves in from, nearest first; left out, they are simply there. */ streetsFrom?: [number, number]; /** Parcel outlines, drawn as the lightest lines. */ parcels?: number[][][]; /** Street edges, already cut at the crossings into block outlines. */ streets?: number[][][]; /** How the streets are drawn, where the faint default is too light. */ streetStyle?: { width?: number; colour?: string; opacity?: number }; names: { text: string; along: [number, number][] }[]; note: string; sourceId: string }
   /** Longer dashed lines along a route, by id. One marked `drawIn` is drawn from its first point to its last as the stop arrives. */
   routes?: string[]
   /** The event in chapters.ts this stop tells, for its sources. */
   eventId?: string
   /** Source for a stop that has no event of its own. */
   sourceId?: string
+}
+
+export type LandTime = '1880s' | '1887' | '1900' | '1912' | '1917'
+
+export interface GrowthBuilding {
+  name: string
+  built: number | null
+  /** A fill colour to pick the building out. */
+  fill?: string
+  /** Over water, the building stands on piles at this floor height (metres above the sea). */
+  piles?: boolean
+  minBase?: number
+  lon: number
+  lat: number
+  parts: { kind: 'prism'; x: number; y: number; ring: [number, number][]; h: number }[]
 }
 
 export interface MapChapter {
@@ -127,6 +173,8 @@ export interface Route {
 }
 
 import { millAnnotations, millCentre, millTrack, millYardCentre } from './millSite'
+import { cprLine1912 } from './cpr1912'
+import { districtTo } from './district1912'
 import type { Annotation } from '../district/annotate'
 import { granvillePlaces } from './granville1870'
 import { granvillePlaces1885 } from './granville1885'
@@ -151,6 +199,7 @@ const millPhotos: Photo[] = [
     credit: CVA,
     ref: 'CVA 371-3178',
     recordUrl: record('hastings-sawmill-1872'),
+    sourceId: 'cva-371-3178',
   },
   {
     file: 'chapter-1/hastings-sawmill-c1883_mi-p41.jpg',
@@ -161,6 +210,7 @@ const millPhotos: Photo[] = [
     credit: CVA,
     ref: 'Mi P41',
     recordUrl: record('hastings-sawmill-4'),
+    sourceId: 'cva-mi-p41',
   },
   {
     file: 'chapter-1/simson-cottage-1885_mi-p16.jpg',
@@ -171,15 +221,17 @@ const millPhotos: Photo[] = [
     credit: CVA,
     ref: 'Mi P16',
     recordUrl: record('simson-cottage-at-hastings-sawmill'),
+    sourceId: 'cva-mi-p16',
   },
   {
     file: 'chapter-1/hastings-sawmill-1886_mi-p19.jpg',
     title: 'Hastings Sawmill',
     date: '1886',
-    alt: 'The Hastings Sawmill in 1886.',
+    alt: 'The mill from the slope above it: board houses, the long mill shed with its stack, lumber stacked in the yard, and the water behind.',
     credit: CVA,
     ref: 'Mi P19',
     recordUrl: record('hastings-sawmill-2'),
+    sourceId: 'cva-mi-p19',
   },
   {
     file: 'chapter-1/hastings-sawmill-july-1886_mi-p36.jpg',
@@ -190,6 +242,7 @@ const millPhotos: Photo[] = [
     credit: CVA,
     ref: 'Mi P36',
     recordUrl: record('hastings-sawmill-3'),
+    sourceId: 'cva-mi-p36',
   },
   {
     file: 'chapter-1/hastings-sawmill-wharf-c1887_mi-p24.jpg',
@@ -199,6 +252,7 @@ const millPhotos: Photo[] = [
     credit: CVA,
     ref: 'Mi P24',
     recordUrl: record('hastings-sawmill-wharf'),
+    sourceId: 'cva-mi-p24',
   },
 ]
 
@@ -246,6 +300,7 @@ const saloonPhotos: Photo[] = [
     credit: `${CVA}, attributed to Joseph Davis`,
     ref: 'Dist P11.1',
     recordUrl: record('gastown-27'),
+    sourceId: 'cva-dist-p11-1',
   },
   {
     file: 'chapter-1/view-of-granville-1885_dist-p14.jpg',
@@ -256,6 +311,87 @@ const saloonPhotos: Photo[] = [
     credit: CVA,
     ref: 'Dist P14',
     recordUrl: record('view-of-granville'),
+    sourceId: 'cva-dist-p14',
+  },
+]
+
+/**
+ * Granville in its last year before the fire. No photograph dated August 1885, the month of the
+ * insurance map, was found; these are the nearest, both public domain.
+ */
+const granvillePhotos: Photo[] = [
+  {
+    file: 'chapter-1/maple-tree-square-june-1886_cva-256-06.jpg',
+    title: 'Carrall Street and Powell Street, 1886',
+    date: '7 June 1886',
+    alt: 'Men standing under a large maple tree on a dirt square; a two-storey wooden store with a verandah on the left, a horse and cart in front of it.',
+    note: 'Maple Tree Square, six days before the fire, ten months after the insurance map.',
+    credit: `${CVA}, H. B. Abbott fonds`,
+    ref: 'CVA 256-06',
+    recordUrl: record('carrall-street-and-powell-street-1886-maple-tree-square'),
+    sourceId: 'cva-256-06',
+  },
+  {
+    file: 'chapter-1/sunnyside-hotel-float-1885_wat-p39.jpg',
+    title: 'The Sunnyside Hotel float at the foot of Carrall Street',
+    date: '1885',
+    alt: 'A long plank walkway running out over still water to a float, with a small steamer and rowing boats beyond and a wooded point in the distance.',
+    note: 'The float in front of the Sunnyside Hotel, the year of the map.',
+    credit: CVA,
+    ref: 'Wat P39',
+    recordUrl: record('sunnyside-hotel-float-at-foot-of-carrall-street'),
+    sourceId: 'cva-wat-p39',
+  },
+]
+
+/** The city after the fire of 13 June 1886. Both public domain. */
+const firePhotos: Photo[] = [
+  {
+    file: 'chapter-1/city-hall-tent-1886_lgn-1045.jpg',
+    title: 'Mayor, council and city officials in front of the City Hall tent',
+    date: 'probably September 1886',
+    alt: 'Fifteen men in suits around two tables in front of a canvas tent with a sign reading City Hall; a board building on the right.',
+    note: 'Mayor M. A. Maclean and council in front of the tent. Long dated 16 June 1886; the archive now puts it in early September 1886, from a newspaper article and a dated poster in the background.',
+    credit: CVA,
+    ref: 'LGN 1045',
+    recordUrl: record('mayor-council-and-city-officials-assembled-in-front-of-tent'),
+    sourceId: 'cva-lgn-1045',
+  },
+  {
+    file: 'chapter-1/cordova-street-july-1886_str-p7.jpg',
+    title: 'Cordova Street looking west from Carrall Street',
+    date: 'July 1886',
+    alt: 'A dirt street lined with new board buildings, timber stacked at the left, people in the road; business names are written in ink across the sky.',
+    note: 'Five weeks after the fire. The names written across it, among them the Burrard Hotel, were added later by hand. The print is a 1928 copy.',
+    credit: CVA,
+    ref: 'Str P7',
+    recordUrl: record('cordova-street-looking-west-from-carrall-street-july-1886-five-weeks-after-fire'),
+    sourceId: 'cva-str-p7',
+  },
+]
+
+/** The first train, 23 May 1887. Both public domain. */
+const trainPhotos: Photo[] = [
+  {
+    file: 'chapter-1/first-train-crowds-1887_lgn-460.jpg',
+    title: 'Crowds at the C.P.R. station for the first train',
+    date: '23 May 1887',
+    alt: 'A crowd lining a wharf and the tracks below a rock bluff, a locomotive and cars among them, the inlet and a long trestle behind.',
+    credit: CVA,
+    ref: 'LGN 460',
+    recordUrl: record('crowds-at-c-p-r-station-viewing-arrival-of-first-train-in-vancouver'),
+    sourceId: 'cva-lgn-460',
+  },
+  {
+    file: 'chapter-1/engine-374-1887_can-p5.jpg',
+    title: 'Engine 374 of the first passenger train',
+    date: '23 May 1887',
+    alt: 'Locomotive 374 hung with evergreen garlands and a portrait of Queen Victoria, its crew and other men standing beside it.',
+    note: 'At the freight sheds at the foot of Richards and Seymour streets.',
+    credit: CVA,
+    ref: 'Can P5',
+    recordUrl: record('engine-374-of-first-c-p-r-passenger-train-to-arrive-in-vancouver'),
+    sourceId: 'cva-can-p5',
   },
 ]
 
@@ -318,15 +454,21 @@ export const chapterOne: MapChapter = {
       // East to west: the direction the first train came in. Across the mill site the line is the one
       // surveyed on the 1889 plan; either side of it, a smoothed line through today's tracks.
       points: [
-        ...approachFromEast.filter((p) => p[0] > millTrack[millTrack.length - 1][0]),
+        // east of the 1912 atlas's sheets, a stand-in on today's tracks; then the line Goad's 1912
+        // atlas draws, east to west, with the 1889 plan's track across the mill site
+        ...approachFromEast.filter((p) => p[0] > cprLine1912[cprLine1912.length - 1][0]),
+        ...[...cprLine1912].reverse().filter((p) => p[0] > millTrack[millTrack.length - 1][0]),
         ...[...millTrack].reverse(),
-        ...approachFromEast.filter((p) => p[0] < millTrack[0][0]),
+        ...[...cprLine1912].reverse().filter((p) => p[0] < millTrack[0][0]),
+        // and on to the end of the line, the terminus marked on the map
+        [-123.1135, 49.2862],
       ],
       drawIn: true,
       track: true,
       located: false,
+      caveat: 'The line is from the 1912 atlas and the 1889 plan; east of Hastings Mill it is a stand-in on today\'s tracks.',
       basis:
-        'A smoothed line through today\'s waterfront tracks, from the City\'s railway data. It stands in for the 1887 route, which is assumed to have followed the same shore. Only the stretch across the mill site is taken from a survey of the time.',
+        'From Granville Street to east of Hastings Mill, the line Goad\'s 1912 atlas draws, with the 1889 plan\'s track across the mill site; in 1887 much of it ran on a trestle over the tidal foreshore, later filled. East of that, a stand-in on today\'s tracks.',
     },
     {
       id: 'cpr-mill-1889',
@@ -442,6 +584,7 @@ export const chapterOne: MapChapter = {
         note: `Buildings are traced from the Sanborn fire insurance map of August 1885. Only the main buildings are drawn, positions are good to a few metres, and roof forms and heights are assumed. The streets are the Granville townsite's, surveyed in 1870, drawn on today's street lines.`,
         sourceId: 'sanborn-1885',
       },
+      photos: granvillePhotos,
       sourceId: 'sanborn-1885',
     },
     {
@@ -482,6 +625,7 @@ export const chapterOne: MapChapter = {
       burns: [['saloon', 'granville-1885']],
       // After the burn, the Byrnes Block rises first, then the town of 1889.
       rises: [['saloon', 'byrnes-block-1889'], ['saloon', 'granville-1889']],
+      photos: firePhotos,
       eventId: 'incorporation-fire',
     },
     {
@@ -494,16 +638,22 @@ export const chapterOne: MapChapter = {
       ],
       // From the east, looking west down the shore, so the line runs away from the viewer toward its end.
       view: { lon: -123.103, lat: 49.2848, dist: 4700, theta: 0.45, phi: 1.1 },
-      sites: ['mill', 'saloon', 'terminus'],
-      models: [['mill', 'hastings-mill-1889']],
+      sites: ['terminus'],
+      // the town as the 1889 plan draws it, two years on, and the mill, as the nearest record of what stood here
+      models: [['mill', 'hastings-mill-1889'], ['saloon', 'byrnes-block-1889'], ['saloon', 'granville-1889']],
+      // the rest of the city, faintly: the district as the chapter 2 count has it in 1887, a stand-in
+      faint: districtTo(1887),
       routes: ['cpr-1887'],
+      // the 1880s shore with the railway's roadbed built out along it
+      land: '1887',
       context: {
         lines: [],
         names: [],
         streets: streets1887.edges,
-        note: `The faint double lines are the streets of the city as surveyed by 1887, from the Ross and Ceperley map of the Canadian Pacific townsite, drawn on today's street lines where they lay on 1880s land. Many were lines on paper through stumps: a street on the map was not necessarily built.`,
+        note: `The faint double lines are the streets of the city as surveyed by 1887, from the Ross and Ceperley map of the Canadian Pacific townsite, drawn on today's street lines where they lay on 1880s land. Many were lines on paper through stumps: a street on the map was not necessarily built. The shore is the 1880s one with the railway's roadbed added along it: the Canadian Pacific laid the line on fill and trestle over the beach below the bluff. The roadbed is drawn as a strip about 25 m wide along the line, a drawing choice; its real edges in 1887 have not been traced, and the beach behind it, which the line crossed on trestle, is drawn as ground. The buildings are the town between Cambie and Carrall and the mill as the 1889 fire insurance plan draws them, two years after the train: the nearest record of what stood here. The faint buildings around them are a stand-in for the rest of the city of 1887, which no digitized map records: they are buildings of Goad's 1912 atlas, the few the City's property records date to 1887 or before and a share of the undated ones, chosen at random, as the next chapter's count has them in 1887. Where they stand is not where the city of 1887 was.`,
         sourceId: 'cpr-townsite-1887',
       },
+      photos: trainPhotos,
       eventId: 'cpr-arrival',
     },
   ],
