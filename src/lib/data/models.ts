@@ -12,6 +12,7 @@ import { granvilleBuildings1885, granvilleFootprints1885 } from './granville1885
 import { byrnesBlock1889, granvilleBuildings1889 } from './granville1889'
 import landmarks from './landmarks.json'
 import goad1912 from './goad1912.json'
+import { footprintAt } from './district1912'
 
 /** One piece of a building. Distances are metres; x and y are east and north of the site before the group is turned. */
 export type Part =
@@ -76,13 +77,31 @@ export const models: BuildingModel[] = [
     parts: prisms('woodwards'),
   },
   {
+    id: 'cn-station-1919',
+    name: 'Canadian Northern station, 1919',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [landmarks['cn-station'].lon, landmarks['cn-station'].lat],
+    evidence: `Today's Pacific Central Station on the False Creek flats, opened in 1919 as the Canadian Northern's terminal, from the City's footprint and 2009 LiDAR height. The LiDAR height is the mean over the roof, lower than the central hall.`,
+    parts: prisms('cn-station'),
+  },
+  {
+    id: 'city-hall-1907',
+    name: 'City Hall, 1898 to 1929',
+    bearing: 0,
+    basis: 'plan',
+    anchor: [-123.10025, 49.28073],
+    evidence: `The building marked City Hall in Goad's 1912 atlas: the old market hall on Westminster Avenue (Main Street), behind the Carnegie Library, the city hall from 1898 to 1929. Drawn at an assumed 14 m, about three storeys; its height has not been checked.`,
+    parts: [{ kind: 'prism', x: 0, y: 0, ring: goad1912.brick[footprintAt('brick', -123.10025, 49.28073)] as [number, number][], h: 14 }],
+  },
+  {
     id: 'bcer-1912',
     name: 'BC Electric Railway terminal, as drawn in 1912',
     bearing: 0,
     basis: 'plan',
     anchor: [landmarks.bcer.lon, landmarks.bcer.lat],
-    evidence: `The brick building at the junction of Hastings and Carrall in Goad's 1912 atlas, marked as the B.C. Electric Railway Company's offices, with the track curving into it. Raised to six storeys, about 24 m, as the heritage register describes it. It is footprint 314 of the atlas's brick buildings in goad1912.json, so it must be checked if that file is rebuilt.`,
-    parts: [{ kind: 'prism', x: 0, y: 0, ring: goad1912.brick[314] as [number, number][], h: 24 }],
+    evidence: `The brick building at the junction of Hastings and Carrall in Goad's 1912 atlas, marked as the B.C. Electric Railway Company's offices, with the track curving into it. Raised to six storeys, about 24 m, as the heritage register describes it. Found in goad1912.json by the point of the junction.`,
+    parts: [{ kind: 'prism', x: 0, y: 0, ring: goad1912.brick[footprintAt('brick', landmarks.bcer.lon, landmarks.bcer.lat)] as [number, number][], h: 24 }],
   },
   {
     id: 'bcer-1911',
@@ -200,6 +219,54 @@ export const models: BuildingModel[] = [
     evidence:
       'No photograph of the 1867 Globe Saloon is held by the City of Vancouver Archives; the only image of it there is a newspaper drawing made in 1940. The Canadian Encyclopedia says only that mill workers put it up within a day, so it is drawn as a single small plank shed. Its size and position on the lot are assumed.',
     parts: [{ kind: 'gable', x: -7, y: -6, w: 7.5, d: 4, eave: 2.4, ridge: 3.6 }],
+  },
+  {
+    id: 'passenger-train-1910',
+    name: 'A Canadian Pacific passenger train',
+    bearing: 0, // set from the way it is travelling
+    basis: 'type',
+    evidence: 'A locomotive, tender and four coaches at the lengths of the time, as a type: no particular train. Drawn a little larger than life so that it can be seen.',
+    parts: [
+      { kind: 'box', x: 0, y: 42, w: 3, d: 12, h: 4 },   // locomotive
+      { kind: 'box', x: 0, y: 33, w: 3, d: 5, h: 3 },   // tender
+      { kind: 'box', x: 0, y: 20, w: 3, d: 18, h: 4 },
+      { kind: 'box', x: 0, y: 0, w: 3, d: 18, h: 4 },
+      { kind: 'box', x: 0, y: -20, w: 3, d: 18, h: 4 },
+      { kind: 'box', x: 0, y: -40, w: 3, d: 18, h: 4 },
+    ],
+  },
+  {
+    id: 'freight-train-1935',
+    name: 'A freight train',
+    bearing: 0, // set from the way it is travelling
+    basis: 'type',
+    evidence: 'A locomotive, tender and eight boxcars at the lengths of the time, as a type: the trekkers rode on top of cars like these. Drawn a little larger than life so that it can be seen.',
+    parts: [
+      { kind: 'box', x: 0, y: 56, w: 3, d: 12, h: 4 },   // locomotive
+      { kind: 'box', x: 0, y: 47, w: 3, d: 5, h: 3 },   // tender
+      { kind: 'box', x: 0, y: 38, w: 3, d: 11, h: 3.6 },
+      { kind: 'box', x: 0, y: 25, w: 3, d: 11, h: 3.6 },
+      { kind: 'box', x: 0, y: 12, w: 3, d: 11, h: 3.6 },
+      { kind: 'box', x: 0, y: -1, w: 3, d: 11, h: 3.6 },
+      { kind: 'box', x: 0, y: -14, w: 3, d: 11, h: 3.6 },
+      { kind: 'box', x: 0, y: -27, w: 3, d: 11, h: 3.6 },
+      { kind: 'box', x: 0, y: -40, w: 3, d: 11, h: 3.6 },
+      { kind: 'box', x: 0, y: -53, w: 3, d: 11, h: 3.6 },
+    ],
+  },
+  {
+    id: 'steamship-1910',
+    name: 'A Pacific steamship',
+    bearing: 0, // set from the way it is travelling
+    basis: 'type',
+    evidence: "A hull, superstructure and funnels at about the size of the Canadian Pacific's Empress liners of the 1890s to 1910s, as a type: no particular ship. Drawn a little larger than life so that it can be seen.",
+    parts: [
+      { kind: 'box', x: 0, y: 0, w: 13, d: 130, h: 7, afloat: true },        // hull
+      { kind: 'box', x: 0, y: 60, w: 6, d: 10, h: 3, afloat: true },        // bow, narrowing
+      { kind: 'box', x: 0, y: -2, w: 9, d: 60, h: 4, z0: 7, afloat: true },  // superstructure
+      { kind: 'box', x: 0, y: 12, w: 3, d: 3, h: 7, z0: 11, afloat: true },  // funnels
+      { kind: 'box', x: 0, y: -14, w: 3, d: 3, h: 7, z0: 11, afloat: true },
+    ],
   },
   {
     id: 'deighton-canoe',

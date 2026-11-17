@@ -65,7 +65,7 @@
 
   export function zoom(f) { d3 && d3.zoom(f); }
   export function fly(view, ms) { d3 && d3.flyTo(view, ms); }
-  export function marks(sites, paths, lines) { d3 && d3.setMarks(sites, paths, lines); }
+  export function marks(sites, paths, lines, accent) { d3 && d3.setMarks(sites, paths, lines, accent); }
   export function models(list) { d3 && d3.setModels(list); }
   export function dotted(lines) { d3 && d3.setDotted(lines); }
   export function groundText(labels) { d3 && d3.setGroundText(labels); }

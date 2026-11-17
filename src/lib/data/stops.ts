@@ -109,17 +109,32 @@ export interface Stop {
   models?: [string, string, string?][]
   /** The weight and colour of the buildings' edges on this card, where the default ink is too heavy. */
   edges?: { width?: number; colour?: string }
+  /** The coloured buildings of a standing growth take their colour one by one, nearest `from` first, over `ms`. */
+  highlight?: { from: [number, number]; ms?: number; delay?: number }
   /** Hold the site marks back until the growth count has finished. */
   marksAfterGrowth?: boolean
   /** Buildings drawn faintly, as context: the rest of the city, where it is a stand-in rather than a record. */
   faint?: GrowthBuilding[]
   /** Things that travel in as the stop arrives: a model from models.ts, moved from one [lon, lat] to another. */
-  arrivals?: { model: string; from: [number, number]; to: [number, number]; scale?: number }[]
+  arrivals?: {
+    model: string
+    /** A straight glide from one point to another. */
+    from?: [number, number]
+    to?: [number, number]
+    /** Or along one of the chapter's routes, by id, in the order of its points. */
+    route?: string
+    /** How long the journey takes; along a route, `loop` starts it again at the end. */
+    ms?: number
+    loop?: boolean
+    scale?: number
+    /** A fill colour, so a small thing reads at a distance. */
+    fill?: string
+  }[]
   /**
    * Faint lines and names from a period map, laid on the ground to give the place its surroundings.
    * `note` says which map, of what date, and how it was put on the ground; it is shown in the card.
    */
-  context?: { lines: [number, number][][]; minor?: [number, number][][]; burnArea?: [number, number][]; burnFrom?: [number, number]; /** Where the streets draw themselves in from, nearest first; left out, they are simply there. */ streetsFrom?: [number, number]; /** Parcel outlines, drawn as the lightest lines. */ parcels?: number[][][]; /** Street edges, already cut at the crossings into block outlines. */ streets?: number[][][]; /** How the streets are drawn, where the faint default is too light. */ streetStyle?: { width?: number; colour?: string; opacity?: number }; names: { text: string; along: [number, number][] }[]; note: string; sourceId: string }
+  context?: { lines: [number, number][][]; minor?: [number, number][][]; burnArea?: [number, number][]; burnFrom?: [number, number]; /** Where the streets draw themselves in from, nearest first; left out, they are simply there. */ streetsFrom?: [number, number]; /** Parcel outlines, drawn as the lightest lines. */ parcels?: number[][][]; /** Boundaries drawn as solid ink lines on the ground, such as a neighbourhood's. */ outlines?: number[][][]; /** Street edges, already cut at the crossings into block outlines. */ streets?: number[][][]; /** How the streets are drawn, where the faint default is too light. */ streetStyle?: { width?: number; colour?: string; opacity?: number }; names: { text: string; along: [number, number][] }[]; note: string; sourceId: string }
   /** Longer dashed lines along a route, by id. One marked `drawIn` is drawn from its first point to its last as the stop arrives. */
   routes?: string[]
   /** The event in chapters.ts this stop tells, for its sources. */
@@ -135,6 +150,8 @@ export interface GrowthBuilding {
   built: number | null
   /** A fill colour to pick the building out. */
   fill?: string
+  /** The year the ground under the building existed, where it stands on fill. */
+  ground?: number
   /** Over water, the building stands on piles at this floor height (metres above the sea). */
   piles?: boolean
   minBase?: number
@@ -163,6 +180,8 @@ export interface Route {
   drawIn: boolean
   /** Drawn as a solid line; otherwise dashed. */
   solid?: boolean
+  /** Drawn in this colour instead of the map's ink. */
+  colour?: string
   /** Drawn as a railway: two rails with ties across them, laid from the first point to the last when `drawIn`. */
   track?: boolean
   /** True once a source confirms the line ran here. */

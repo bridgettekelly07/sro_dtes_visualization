@@ -99,7 +99,7 @@ export class District3D {
   setBare(on) { on = !!on; if (on !== !!this.bare) { this.bare = on; this.needFoot = true; } }
   // base map: sites and paths to mark on the ground.
   //   sites: [{ label, lon, lat }]   paths: dashed lines, [[[lon, lat], ...], ...]   lines: solid lines, same shape
-  setMarks(sites, paths, lines) { this.marks = { sites: sites || [], paths: paths || [], lines: lines || [] }; if (this.ready) { this.buildMarks(); this.dirty = true; } }
+  setMarks(sites, paths, lines, accent) { this.marks = { sites: sites || [], paths: paths || [], lines: lines || [], accent: accent || [] }; if (this.ready) { this.buildMarks(); this.dirty = true; } }
   // base map: buildings drawn from simple parts, each list standing at a place on the ground.
   //   models: [{ lon, lat, bearing (radians, turning the whole group anticlockwise), parts: [...] }]
   //   a part: { kind: "gable" | "hip" | "box", x, y (metres east and north of the place, before bearing),
@@ -576,6 +576,8 @@ export class District3D {
     // base map: the marks for named sites (a solid ring and stem) and the dashed paths between them
     this.matMark = new LineMaterial({ color: 0x1f1f1f, linewidth: 2 });
     this.matMarkPath = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.5, dashed: true, dashScale: 1 });
+    // base map: a path in the accent red, dashed
+    this.matMarkAccent = new LineMaterial({ color: 0x8e4233, linewidth: 1.8, dashed: true, dashScale: 1 });
     this.matMarkLine = new LineMaterial({ color: 0x1f1f1f, linewidth: 1.6 });
     this.matMarkDot = new LineMaterial({ color: 0x3a3a3a, linewidth: 1.2 });
     // base map: a dotted stem from a building's roof up to its name
@@ -1699,10 +1701,14 @@ export class District3D {
         }
       }
     };
-    const dash = [], plain = [];
+    const dash = [], plain = [], red = [];
     m.paths.forEach((pts) => drape(dash, pts));
     (m.lines || []).forEach((pts) => drape(plain, pts));
+    (m.accent || []).forEach((pts) => drape(red, pts));
     this.matMarkPath.dashSize = 14 * u; this.matMarkPath.gapSize = 10 * u;
+    this.matMarkAccent.dashSize = 12 * u; this.matMarkAccent.gapSize = 8 * u;
+    const accent = this.fatLines(new Float32Array(red), this.matMarkAccent);
+    if (accent) this.gMarks.add(accent);
     const path = this.fatLines(new Float32Array(dash), this.matMarkPath);
     if (path) this.gMarks.add(path);
     const line = this.fatLines(new Float32Array(plain), this.matMarkLine);
@@ -1800,7 +1806,7 @@ export class District3D {
     const w = this.wrap.clientWidth || 600, h = this.wrap.clientHeight || Math.max(380, Math.round(w * 0.64));
     this.renderer.setSize(w, h, false);
     this.matEdge.resolution.set(w, h); this.matEdgeSro.resolution.set(w, h); this.matWin.resolution.set(w, h); this.matCurb.resolution.set(w, h); this.matRailPen.resolution.set(w, h);
-    this.matMark.resolution.set(w, h); this.matMarkPath.resolution.set(w, h); this.matMarkLine.resolution.set(w, h); this.matModelEdge.resolution.set(w, h); this.matModelEdgeFaint.resolution.set(w, h); this.matMarkStem.resolution.set(w, h); this.matMarkDot.resolution.set(w, h);
+    this.matMark.resolution.set(w, h); this.matMarkPath.resolution.set(w, h); this.matMarkLine.resolution.set(w, h); this.matModelEdge.resolution.set(w, h); this.matModelEdgeFaint.resolution.set(w, h); this.matMarkStem.resolution.set(w, h); this.matMarkAccent.resolution.set(w, h); this.matMarkDot.resolution.set(w, h);
     if (this.gFine) this.gFine.children.forEach((o) => o.material && o.material.resolution && o.material.resolution.set(w, h));
     this.persp.aspect = w / h;
     this.persp.updateProjectionMatrix();

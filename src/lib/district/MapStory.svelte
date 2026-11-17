@@ -101,7 +101,7 @@
   const ready = $derived(!!(data && proj && data.surveyed.length && data.foot))
   const colourOf = () => hexOf(css('--m3-bldg'))
 
-  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
+  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][], accent?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
   let mapReady = $state(false)
   let fail = $state('')
   let active = $state(0)
@@ -172,9 +172,12 @@
     )
     const routes = (stop.routes ?? []).map((id) => routeById.get(id)).filter((r) => !!r)
     const tracks = routes.filter((r) => r.track)
-    const still = routes.filter((r) => !r.drawIn && !r.solid && !r.track).map((r) => r.points)
+    const still = routes.filter((r) => !r.drawIn && !r.solid && !r.track && !r.colour).map((r) => r.points)
+    // routes in a colour of their own, dashed in it
+    const accentStill = routes.filter((r) => !r.drawIn && !r.track && r.colour).map((r) => r.points)
     const shore = [...oldShore, ...routes.filter((r) => r.solid).map((r) => r.points)] // solid lines
-    const moving = routes.filter((r) => r.drawIn && !r.track)
+    const moving = routes.filter((r) => r.drawIn && !r.track && !r.colour)
+    const accentMoving = routes.filter((r) => r.drawIn && !r.track && r.colour)
 
     // The text panel covers the left of the window, so the subject is framed in the middle of
     // what is left: the space between the panel's right edge and the window's.
@@ -186,7 +189,9 @@
     // A stop with an annotation is framed by it; its rings, leaders and names go on the ground.
     const layout = stop.annotation ? layoutAnnotation(stop.annotation, { width, height: window.innerHeight, panelRight }) : null
     // A period map's lines go under the annotation, fainter than it.
-    const context = stop.context ? [{ lines: stop.context.lines, dash: [mPerPxOf(layout, stop) * 3, mPerPxOf(layout, stop) * 6] as [number, number], width: 0.8, colour: '#555555', opacity: 0.8 }, { lines: stop.context.minor ?? [], dash: [mPerPxOf(layout, stop) * 1, mPerPxOf(layout, stop) * 4] as [number, number], width: 0.7, colour: '#666666', opacity: 0.6 }] : []
+    const context: { lines: [number, number][][]; dash?: [number, number]; width: number; colour: string; opacity: number }[] = stop.context ? [{ lines: stop.context.lines, dash: [mPerPxOf(layout, stop) * 3, mPerPxOf(layout, stop) * 6] as [number, number], width: 0.8, colour: '#555555', opacity: 0.8 }, { lines: stop.context.minor ?? [], dash: [mPerPxOf(layout, stop) * 1, mPerPxOf(layout, stop) * 4] as [number, number], width: 0.7, colour: '#666666', opacity: 0.6 }] : []
+    // boundaries, as solid ink
+    if (stop.context?.outlines?.length) context.push({ lines: stop.context.outlines as [number, number][][], width: 1.4, colour: '#1f1f1f', opacity: 0.95 })
     // Burned ground: a charcoal smudge. Where the stop says where the fire began, it starts with
     // nothing burned and spreads out from there once the camera has settled.
     const burnArea = stop.context?.burnArea
@@ -322,12 +327,16 @@
     // into the ground as the camera flies, so one card's buildings do not simply vanish into the next's.
     type Shown = { lon: number; lat: number; bearing: number; parts: Part[]; minBase: number; piles?: boolean; fill?: string; faint?: boolean }
     const keyOf = (m: Shown) => `${m.lon.toFixed(6)},${m.lat.toFixed(6)},${m.parts.length}`
-    const kept = new Set(standing.map(keyOf))
-    const outgoing = lastShown.filter((m) => !kept.has(keyOf(m)))
+    // What the last card showed. Whatever this card does not keep sinks away; whatever is new to it rises;
+    // what both show stays as it is. The two lists are compared the first time this card draws its buildings.
+    const prevShown = lastShown
+    const prevKeys = new Set(prevShown.map(keyOf))
     lastShown = []
     let current: Shown[] = standing
-    const SINK_MS = 1100
-    const sinkFrom = performance.now()
+    // whatever is travelling right now, shown on top of the card's buildings whoever drew them last
+    let vehicles: Shown[] = []
+    const TRANS_MS = 1100
+    const transFrom = performance.now()
     const sunk = (m: Shown, k: number): Shown => ({
       ...m,
       parts: m.parts.map((p) =>
@@ -336,42 +345,63 @@
         : { ...p, eave: Math.max(0.05, p.eave * k), ridge: Math.max(0.06, p.ridge * k) },
       ),
     })
-    let sinking = outgoing.length > 0 && !first
+    let outgoing: Shown[] = []
+    const incoming = new Set<string>()
+    let settled = false
+    let transitioning = !first
+    // the lists are compared at the first frame, once the card has drawn everything it starts with
+    const settle = () => {
+      if (settled) return
+      settled = true
+      const keys = new Set(current.map(keyOf))
+      outgoing = prevShown.filter((m) => !keys.has(keyOf(m)))
+      for (const m of current) if (!prevKeys.has(keyOf(m))) incoming.add(keyOf(m))
+      if (!outgoing.length && !incoming.size) transitioning = false
+    }
     const showModels = (list: Shown[]) => {
       current = list
       lastShown = list
-      if (!sinking) return mapNow.models(list)
-      const k = 1 - Math.max(0, Math.min(1, (performance.now() - sinkFrom) / SINK_MS))
-      const e = k * k * (3 - 2 * k)
-      mapNow.models([...list, ...outgoing.map((m) => sunk(m, e))])
+      if (!transitioning) return mapNow.models([...list, ...vehicles])
+      if (!settled) {
+        // until then, the last card's buildings stay as they were
+        const keys = new Set(list.map(keyOf))
+        return mapNow.models([...list, ...vehicles, ...prevShown.filter((m) => !keys.has(keyOf(m)))])
+      }
+      const t = Math.max(0, Math.min(1, (performance.now() - transFrom) / TRANS_MS))
+      const e = t * t * (3 - 2 * t)
+      mapNow.models([...list.map((m) => (incoming.has(keyOf(m)) ? sunk(m, e) : m)), ...vehicles, ...outgoing.map((m) => sunk(m, 1 - e))])
     }
-    if (sinking) {
-      const sink = (now: number) => {
+    const showVehicles = (list: Shown[]) => {
+      vehicles = list
+      showModels(current)
+    }
+    if (transitioning) {
+      const step = (now: number) => {
         if (run !== drawing) return
-        if (now - sinkFrom >= SINK_MS) {
-          sinking = false
+        settle()
+        if (now - transFrom >= TRANS_MS) {
+          transitioning = false
           showModels(current)
           return
         }
         showModels(current)
-        requestAnimationFrame(sink)
+        requestAnimationFrame(step)
       }
-      requestAnimationFrame(sink)
+      requestAnimationFrame(step)
     }
     // Anything that travels in: placed at its start, then moved to its end once the camera has settled.
-    const arriving = (stop.arrivals ?? []).flatMap((a) => {
-      const model = buildingModels.find((b) => b.id === a.model)
-      if (!model) return []
-      const east = (a.to[0] - a.from[0]) * Math.cos((a.to[1] * Math.PI) / 180)
-      const north = a.to[1] - a.from[1]
-      const k = a.scale ?? 1
-      const parts = model.parts.map((part) => {
+    const scaledParts = (model: (typeof buildingModels)[number], k: number) =>
+      model.parts.map((part) => {
         if (part.kind === 'prism') return part
         const big = { ...part, x: part.x * k, y: part.y * k, w: part.w * k, d: part.d * k }
         if (big.kind === 'box') return { ...big, h: big.h * k, z0: (big.z0 ?? 0) * k }
         return { ...big, eave: big.eave * k, ridge: big.ridge * k }
       })
-      return [{ ...a, parts, bearing: Math.atan2(-east, north) }]
+    const headingOf = (from: number[], to: number[]) => Math.atan2(-(to[0] - from[0]) * Math.cos((to[1] * Math.PI) / 180), to[1] - from[1])
+    const arriving = (stop.arrivals ?? []).flatMap((a) => {
+      const model = buildingModels.find((b) => b.id === a.model)
+      if (!model || !a.from || !a.to) return []
+      return [{ from: a.from, to: a.to, parts: scaledParts(model, a.scale ?? 1), bearing: headingOf(a.from, a.to) }]
     })
     const placed = (share: number) =>
       arriving.map((a) => ({
@@ -381,6 +411,27 @@
         parts: a.parts,
         minBase: 0,
       }))
+    // Anything that travels along one of the chapter's routes: a train on its line, a ship on its course.
+    const routed = (stop.arrivals ?? []).flatMap((a) => {
+      const model = buildingModels.find((b) => b.id === a.model)
+      const route = a.route ? routeById.get(a.route) : undefined
+      if (!model || !route || route.points.length < 2) return []
+      const pts = route.points
+      const kx = 111_320 * Math.cos((pts[0][1] * Math.PI) / 180)
+      const dist = [0]
+      for (let i = 1; i < pts.length; i++) dist.push(dist[i - 1] + Math.hypot((pts[i][0] - pts[i - 1][0]) * kx, (pts[i][1] - pts[i - 1][1]) * 111_200))
+      return [{ pts, dist, total: dist[dist.length - 1], parts: scaledParts(model, a.scale ?? 1), ms: a.ms ?? 9000, loop: !!a.loop, fill: a.fill }]
+    })
+    const alongRoute = (r: (typeof routed)[number], share: number) => {
+      const d = Math.max(0, Math.min(r.total, share * r.total))
+      let i = 1
+      while (i < r.dist.length - 1 && r.dist[i] < d) i++
+      const a = r.pts[i - 1]
+      const b = r.pts[i]
+      const seg = r.dist[i] - r.dist[i - 1] || 1
+      const k = (d - r.dist[i - 1]) / seg
+      return { lon: a[0] + (b[0] - a[0]) * k, lat: a[1] + (b[1] - a[1]) * k, bearing: headingOf(a, b), parts: r.parts, minBase: 0, fill: r.fill }
+    }
     // A burn, then a rebuild: the charcoal spreads from where the fire began, and once it has
     // burned through, the buildings in `rises` grow up out of the ground one after another.
     const BURN_MS = 4200
@@ -422,7 +473,8 @@
       }
       rising.sort((a, b) => at(a) - at(b))
     }
-    showModels([...standing, ...placed(0), ...burning.map((r) => heightened(r, 1))])
+    vehicles = placed(0)
+    showModels([...standing, ...burning.map((r) => heightened(r, 1))])
     if (burnFrom || rising.length || streetsFrom) {
       const start = performance.now() + flight * 0.8
       const riseAt = start + (burnFrom ? BURN_MS + 900 : streetsFrom ? STREETS_MS * 0.55 : 0)
@@ -508,7 +560,29 @@
       const during = dated.filter((b) => (b.built as number) >= growth.from)
       const counting = growth.to > growth.from
       yearShown = counting ? growth.from : null
-      showModels([...standing, ...before.map((b) => asModel(b, 1)), ...(counting ? [] : during.map((b) => asModel(b, 1)))])
+      const staticList = [...standing, ...before.map((b) => asModel(b, 1)), ...(counting ? [] : during.map((b) => asModel(b, 1)))]
+      const hl = stop.highlight
+      if (!counting && hl) {
+        // the coloured buildings take their colour one by one, nearest the given place first
+        const kx = 111_320 * Math.cos((hl.from[1] * Math.PI) / 180)
+        const order = staticList
+          .filter((m) => m.fill)
+          .map((m) => ({ m, d: Math.hypot((m.lon - hl.from[0]) * kx, (m.lat - hl.from[1]) * 111_200) }))
+          .sort((a, b) => a.d - b.d)
+          .map((o) => o.m)
+        const plainOf = (m: (typeof staticList)[number]) => ({ ...m, fill: undefined })
+        const t0 = performance.now() + flight * 0.8 + (hl.delay ?? 600)
+        const ms = hl.ms ?? 6000
+        const tint = (now: number) => {
+          if (run !== drawing) return
+          const k = Math.max(0, Math.min(1, (now - t0) / ms))
+          const lit = new Set(order.slice(0, Math.floor(k * order.length)))
+          showModels(staticList.map((m) => (m.fill && !lit.has(m) ? plainOf(m) : m)))
+          if (k < 1) requestAnimationFrame(tint)
+        }
+        showModels(staticList.map((m) => (m.fill ? plainOf(m) : m)))
+        requestAnimationFrame(tint)
+      } else showModels(staticList)
       let landShown = stop.land ?? '1880s'
       let linesShown = 0
       if (counting) {
@@ -541,7 +615,7 @@
           // the names held back come in once the last buildings are up
           else {
             if (holdLetters) mapNow.groundText([...textNow, ...ownAll.filter((l) => l.later), ...(labelsLater ? [] : featureLabels)])
-            if (stop.marksAfterGrowth) mapNow.marks(sites, [...pairs, ...still], shore)
+            if (stop.marksAfterGrowth) mapNow.marks(sites, [...pairs, ...still], shore, accentStill)
           }
         }
         requestAnimationFrame(grow)
@@ -555,26 +629,48 @@
       const glide = (now: number) => {
         if (run !== drawing) return
         const t = Math.max(0, Math.min(1, (now - from) / duration))
-        showModels([...standing, ...placed(1 - Math.pow(1 - t, 2))]) // slowing as it nears the shore
+        showVehicles(placed(1 - Math.pow(1 - t, 2))) // slowing as it nears the shore
         if (t < 1) requestAnimationFrame(glide)
       }
       requestAnimationFrame(glide)
     }
+    if (routed.length) {
+      // they set off once the routes have been drawn in, and a looping one starts again at the end
+      const from = performance.now() + flight * 0.6 + 3200
+      const travel = (now: number) => {
+        if (run !== drawing) return
+        let going = false
+        const list = routed.map((r) => {
+          const raw = (now - from) / r.ms
+          if (raw < 0) return alongRoute(r, 0)
+          if (r.loop) {
+            going = true
+            return alongRoute(r, raw % 1)
+          }
+          const t = Math.min(1, raw)
+          if (t < 1) going = true
+          return alongRoute(r, 1 - Math.pow(1 - t, 2)) // slowing as it comes in
+        })
+        showVehicles([...(arriving.length ? placed(1) : []), ...list])
+        if (going || now < from) requestAnimationFrame(travel)
+      }
+      requestAnimationFrame(travel)
+    }
 
     // a card can hold its site marks back until its count has run
     const sitesNow = stop.marksAfterGrowth && stop.growth && stop.growth.to > stop.growth.from ? [] : sites
-    if (!moving.length) {
-      mapNow.marks(sitesNow, [...pairs, ...still], shore)
+    if (!moving.length && !accentMoving.length) {
+      mapNow.marks(sitesNow, [...pairs, ...still], shore, accentStill)
       return
     }
     // A route is drawn from its first point to its last, starting as the camera settles.
-    mapNow.marks(sitesNow, [...pairs, ...still], shore)
+    mapNow.marks(sitesNow, [...pairs, ...still], shore, accentStill)
     const [delay, duration] = [flight * 0.6, 3200]
     const start = performance.now() + delay
     const frame = (now: number) => {
       if (run !== drawing) return
       const share = Math.max(0, Math.min(1, (now - start) / duration))
-      if (share > 0) mapNow.marks(sites, [...pairs, ...still, ...moving.map((r) => partial(r.points, share))], shore)
+      if (share > 0) mapNow.marks(sites, [...pairs, ...still, ...moving.map((r) => partial(r.points, share))], shore, [...accentStill, ...accentMoving.map((r) => partial(r.points, share))])
       if (share < 1) requestAnimationFrame(frame)
     }
     requestAnimationFrame(frame)

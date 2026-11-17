@@ -13,12 +13,17 @@ import parcelsHastings from './parcelsHastings.json'
 import sroByYear from './sroByYear.json'
 import landmarks from './landmarks.json'
 import { models as buildingModels } from './models'
-import { district, districtTo, inRing } from './district1912'
+import { district, districtTo, footprintAt, inRing } from './district1912'
+import sroGround from './sroGround.json'
 import { chapterTwoPhotos } from './chapterTwoPhotos'
 import flats1917 from './flats1917.json'
 
 const SOUTH = Math.PI / 2
-const hotels = sroByYear.buildings as unknown as GrowthBuilding[]
+// today's SRO hotels, each with the year its ground existed, so one on fill is not raised before the fill
+const hotels = (sroByYear.buildings as unknown as GrowthBuilding[]).map((h, i) => {
+  const ground = (sroGround.ground as number[])[i]
+  return { ...h, ground, built: h.built == null ? null : Math.max(h.built, ground) }
+})
 const streets = streets1887.edges
 
 const RED = '#8e4233'
@@ -45,8 +50,11 @@ const hotelsRise: GrowthBuilding[] = [
 // waterfront. Picked out by their place in goad1912.json, checked against the atlas sheet by eye.
 const CPR_STATION: [number, number] = [-123.11264, 49.28613]
 const CPR_PIER: [number, number] = [-123.1151, 49.2890]
-const terminalIds = new Set(['brick-33', 'frame-234', 'frame-247', 'frame-368', 'frame-469', 'frame-617', 'frame-706'])
+// the station, and the freight sheds on the pier and along the waterfront, found by their places on the sheet
+const terminalPlaces: ['brick' | 'frame', number, number][] = [['brick', -123.11264, 49.28613], ['frame', -123.11537, 49.28911], ['frame', -123.11481, 49.28898], ['frame', -123.11515, 49.28792], ['frame', -123.11284, 49.2872], ['frame', -123.11058, 49.28655], ['frame', -123.10905, 49.28613]]
+const terminalIds = new Set(terminalPlaces.map(([kind, lon, lat]) => `${kind}-${footprintAt(kind, lon, lat)}`))
 const isTerminal = (b: { kind: string; i: number }) => terminalIds.has(`${b.kind}-${b.i}`)
+const bcerIndex = footprintAt('brick', landmarks.bcer.lon, landmarks.bcer.lat)
 const terminals: GrowthBuilding[] = district
   .filter(isTerminal)
   .map((b) => ({ name: 'Canadian Pacific', built: 1912, fill: '#3b3b3b', lon: b.lon, lat: b.lat, piles: true, minBase: 2, parts: [{ kind: 'prism', x: 0, y: 0, ring: b.ring, h: b.kind === 'brick' ? 11 : 7 }] }))
@@ -61,7 +69,7 @@ const graded = (h: GrowthBuilding): GrowthBuilding => {
 }
 // The bust: everything standing by 1913, and the six hotels that still go up after it, in red.
 const bustRise: GrowthBuilding[] = [
-  ...districtTo(1912, (b) => underHotel(b) || (b.kind === 'brick' && b.i === 314)),
+  ...districtTo(1912, (b) => underHotel(b) || (b.kind === 'brick' && b.i === bcerIndex)),
   ...landmark('carnegie-1903', 'Carnegie Library'),
   ...landmark('woodwards-1903', "Woodward's"),
   ...landmark('bcer-1912', 'BC Electric terminal'),
@@ -104,7 +112,7 @@ export const chapterTwo: MapChapter = {
     {
       id: 'steamer-in',
       // the steamships' way in: through the First Narrows and up the inlet to the pier at the foot of Granville
-      points: [[-123.1420, 49.3030], [-123.1340, 49.2990], [-123.1260, 49.2950], [-123.1200, 49.2920], [-123.1162, 49.2903]],
+      points: [[-123.1270, 49.2985], [-123.1225, 49.2955], [-123.1190, 49.2928], [-123.1162, 49.2903]],
       drawIn: true,
       located: false,
       basis: 'The ships\' course is not surveyed: a line drawn from the First Narrows to the head of the pier.',
@@ -205,6 +213,11 @@ export const chapterTwo: MapChapter = {
       sites: ['cpr-station', 'cpr-pier'],
       // the ways in, drawn as the card arrives: the trains along the line, the ships up the inlet
       routes: ['cpr-main', 'train-in', 'steamer-in'],
+      // and, once the ways are drawn, a train comes in along the line and a ship up the inlet
+      arrivals: [
+        { model: 'passenger-train-1910', route: 'train-in', ms: 9000, scale: 2.6 },
+        { model: 'steamship-1910', route: 'steamer-in', ms: 11000, scale: 1.6 },
+      ],
       land: '1912',
       edges: { width: 0.55, colour: '#7a7a7a' },
       models: [],
@@ -241,7 +254,7 @@ export const chapterTwo: MapChapter = {
       land: '1912',
       edges: { width: 0.55, colour: '#7a7a7a' },
       models: [['bcer', 'bcer-1912', '#8e4233'], ['carnegie', 'carnegie-1903'], ['woodwards', 'woodwards-1903']],
-      growth: { from: 1912, to: 1912, buildings: districtTo(1912, (b) => b.kind === 'brick' && b.i === 314) },
+      growth: { from: 1912, to: 1912, buildings: districtTo(1912, (b) => b.kind === 'brick' && b.i === bcerIndex) },
       routes: ['cpr-main', 'bcer-track'],
       eventId: 'interurban-terminal',
     },

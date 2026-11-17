@@ -10,6 +10,9 @@ picked by hand at each address; heights are the City's 2009 LiDAR unless noted.
   BC Electric Railway terminal, 425 Carrall Street, 1911: the footprint at the south-west corner of
     Carrall and Hastings. Its LiDAR height (5.7 m) is not the building's; it is drawn at six storeys,
     about 24 m, as the heritage register describes it.
+  Canadian Northern station (Pacific Central), 1150 Station Street, 1919: the footprint of the station on
+    the False Creek flats, at its 2009 LiDAR height, which is the mean over the roof and lower than the
+    central hall.
 
 Usage: python3 scripts/build-landmarks.py src/lib/data/landmarks.json
 """
@@ -20,6 +23,7 @@ PICK = {
     'carnegie': {'name': 'Carnegie Library', 'rings': [4397]},
     'woodwards': {'name': "Woodward's", 'rings': [2545, 4996, 1909]},
     'bcer': {'name': 'BC Electric Railway terminal', 'rings': [4675], 'h': 24},
+    'cn-station': {'name': 'Canadian Northern station', 'rings': [4430]},
 }
 
 d = json.load(open('public/data/district/footprints.json'))

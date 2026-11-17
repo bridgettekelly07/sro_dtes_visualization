@@ -40,3 +40,25 @@ export const inRing = (lon: number, lat: number, ring: number[][]) => {
   }
   return c
 }
+
+/** The index, in goad1912.json's order, of the footprint of `kind` standing at a point: the one whose ring holds it, else the nearest middle within 40 m. */
+export const footprintAt = (kind: 'brick' | 'frame', lon: number, lat: number): number => {
+  const rings = goad1912[kind] as number[][][]
+  let best = -1
+  let near = 40
+  rings.forEach((ring, i) => {
+    if (inRing(lon, lat, ring)) {
+      best = i
+      near = 0
+      return
+    }
+    const cx = ring.reduce((a, p) => a + p[0], 0) / ring.length
+    const cy = ring.reduce((a, p) => a + p[1], 0) / ring.length
+    const d = Math.hypot((cx - lon) * 72_600, (cy - lat) * 111_200)
+    if (d < near) {
+      near = d
+      best = i
+    }
+  })
+  return best
+}

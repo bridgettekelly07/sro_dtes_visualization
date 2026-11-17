@@ -72,6 +72,12 @@ def main(path):
         at[kind] = out
     years['at'] = at
     json.dump(years, open(path, 'w'), separators=(',', ':'))
+    # and the same ground test for today's SRO hotels (sroByYear.json), in that file's order, so a hotel
+    # on filled ground is not raised before the fill: src/lib/data/sroGround.json
+    sro = json.load(open('src/lib/data/sroByYear.json'))['buildings']
+    ground_years = [max(ground(p['ring']) for p in h['parts']) for h in sro]
+    json.dump({'source': "The year the ground under each of today's SRO hotels existed (1887, 1898 or 1912), by the shorelines in public/data/district, in the order of sroByYear.json. Made by scripts/build-goad-order.py.", 'ground': ground_years}, open('src/lib/data/sroGround.json', 'w'))
+    print('hotels on later fill:', sum(1 for g in ground_years if g > 1887))
     print('dated', sum(1 for k in ('brick', 'frame') for y in years[k] if y), 'of', sum(len(years[k]) for k in ('brick', 'frame')))
 
 
