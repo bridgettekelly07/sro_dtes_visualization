@@ -14,8 +14,9 @@ import { toneOf, fbm, prng, PARK } from "./parkShade.js";
 export const WATER = {
   mottle: 0.14, mottleM: 220,     // broad clouds: lightness swing and metres across
   mottle2: 0.04, mottle2M: 60,    // a faint finer layer
-  deepM: 3000,                    // metres from shore over which most of the deepening happens (an exponential fall-off: 63% there, 86% at twice it)
-  deep: 0.34,                     // how much darker the deep water is, far out
+  deepM: 1400,                    // metres from shore over which most of the deepening happens (an exponential fall-off: 63% there, 86% at twice it)
+  deep: 0.42,                     // how much darker the deep water is, far out
+  shallow: 0.55, shallowM: 320,   // base map: the shallows pale toward the shore: how much lighter at the water's edge, and over how many metres it fades
   washPx: 1024,
   tint: 1,                        // 1: deep and cloudy water leans blue, as in the optimizer; 0: every channel moves together, so a grey stays grey
 };
@@ -126,7 +127,10 @@ export function waterWash(colour, x0, z0, w, h, mpu, px, shore) {
     // deeper away from the shore: darker and a little bluer, fading in steadily all the way out
     let t = 0;
     if (shore) t = 1 - Math.exp(-Math.max(0, shore.at(x0 + i / pw * w, z0 + j / ph * h)) / WATER.deepM);
-    const deep = 1 - WATER.deep * t;
+    // base map: and lighter again close in, so the water fades toward the shore
+    let sh = 0;
+    if (shore) sh = WATER.shallow * Math.exp(-Math.max(0, shore.at(x0 + i / pw * w, z0 + j / ph * h)) / WATER.shallowM);
+    const deep = (1 - WATER.deep * t) * (1 + sh);
     const k = (j * pw + i) * 4;
     const tn = WATER.tint;
     img.data[k] = Math.max(0, Math.min(255, C[0] * (1 + v * (1 + 0.15 * tn)) * (deep - 0.06 * t * tn)));

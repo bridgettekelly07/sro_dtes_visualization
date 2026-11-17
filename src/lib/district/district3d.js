@@ -498,6 +498,14 @@ export class District3D {
 \tfloat aa = fwidth(sd) * 0.75;
 \tfloat land = smoothstep(-aa, aa, sd);
 \tvec3 water = texture2D(uWater, vMapUv).rgb;
+\t// base map: a faint charcoal smudge over the water, laid on like the slopes': soft clouds and long strokes
+\t// fixed to the ground, broken up by the paper's tooth
+\tvec2 wm = vGroundXZ * uMetres;
+\tfloat wcloud = cNoise(wm / 140.0) * 0.6 + cNoise(wm / 34.0 + 31.0) * 0.4;
+\tfloat wstroke = cNoise(vec2(dot(wm, vec2(0.80, 0.60)) / 90.0, dot(wm, vec2(-0.60, 0.80)) / 5.0));
+\tfloat wtooth = cHash(floor(gl_FragCoord.xy / 1.5)) * 0.6 + cHash(floor(gl_FragCoord.xy / 3.0) + 9.0) * 0.4;
+\tfloat wlaid = (0.4 + 0.9 * wcloud) * (0.8 + 0.4 * wstroke) * mix(1.0, 0.35 + 1.3 * wtooth, uTooth);
+\twater *= 1.0 - 0.09 * wlaid;
 \tvec2 gp = (vGroundXZ - uGridOrigin) / uGridStep;          // grid cells; a line at every whole number
 \tvec2 gd = abs(fract(gp - 0.5) - 0.5) / max(fwidth(gp), vec2(1e-6));
 \tfloat line = uGridW > 0.0 ? 1.0 - min(min(gd.x, gd.y) / uGridW, 1.0) : 0.0;     // uGridW pixels wide, anti-aliased; none at zero (base map: was one pixel)

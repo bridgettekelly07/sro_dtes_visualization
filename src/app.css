@@ -88,7 +88,7 @@
   --m3-lane: #faf9f6;
   --m3-glass: #2e3634;
   --m3-trim: #f3eee2;
-  --m3-water: #bcc4c0;
+  --m3-water: #6e7673;   /* base map: darker, paling toward the shore in the wash */
   --m3-road: #ffffff;
   --m3-walk: #f4f1ea;
   --m3-park: #d6d8b4;
@@ -161,7 +161,7 @@
 
   /* water and green space: the same textures in charcoal tones, the water
      the darker of the two and the parks only a little off the land */
-  --m3-water: #b0b0b0;
+  --m3-water: #707070;   /* base map: darker, paling toward the shore in the wash */
   --m3-park: #dfdfdf;
   --m3-park-low: #cecece;
   --m3-park-stipple: #b6b6b6;
