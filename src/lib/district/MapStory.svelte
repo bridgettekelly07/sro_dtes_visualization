@@ -1,0 +1,535 @@
+<script lang="ts">
+  /**
+   * A chapter told on the map. The map stays fixed behind the page; the text
+   * for each stop scrolls past on the left, and as a stop reaches the middle of
+   * the window the camera flies to its view and its sites appear on the ground.
+   *
+   * The map does not respond to the pointer here, so that scrolling anywhere
+   * on the page moves the story and never zooms the map.
+   */
+  import { onMount } from 'svelte'
+  import Map3D from './Map3D.svelte'
+  import StopPhotos from './StopPhotos.svelte'
+  import ChapterRail from './ChapterRail.svelte'
+  import { loadAll } from './data.js'
+  import { makeProj, mapBbox } from './projection.js'
+  import { css, hexOf } from './colours.js'
+  import { WATER } from './groundTexture.js'
+  import { PARK } from './parkShade.js'
+  import { shoreOutline } from './terrain.js'
+  import { layoutAnnotation, type GroundLabel } from './annotate'
+  import type { MapChapter, Site } from '../data/stops'
+  import { chapters } from '../data/chapters'
+  import { sourceById } from '../data/sources'
+  import { models as buildingModels } from '../data/models'
+
+  let { chapter }: { chapter: MapChapter } = $props()
+
+  // Charcoal washes: grey, quiet, and the water darkening away from shore.
+  WATER.tint = 0
+  WATER.deep = 0.5
+  WATER.deepM = 1400
+  WATER.mottle = 0.11
+  WATER.mottle2 = 0.02
+  PARK.mottle = 0.07
+  PARK.grain = 0.02
+
+  let data = $state.raw<any>(null)
+  // No extra lines are drawn on the ground for now. The 1880s shoreline used to be one, laid over
+  // today's water's edge; the water itself is now cut to that shoreline instead (see below).
+  const oldShore: number[][][] = []
+  let todayShore: number[][][] = []
+  let thenShore: number[][][] = []
+  // the lettering present at every stop: the two shorelines' names
+  let baseLabels: GroundLabel[] = []
+  const OLD_SHORE = 'SHORELINE 1880S'
+  onMount(async () => {
+    // Street names are painted into images, so the typeface has to have arrived before the map is built.
+    await Promise.all([document.fonts.load('700 40px "din-2014-narrow"'), document.fonts.load('700 96px "din-2014"')]).catch(() => {})
+    const loaded = await loadAll()
+    let terrain = loaded.terrain
+    if (chapter.oldShoreline && terrain) {
+      // Before swapping, trace today's shoreline from today's mask, to dot it in over the older one.
+      // The outline comes in mask cells (x east, y south from the north-west corner).
+      const [west, south, east, north] = terrain.bbox
+      const { nx, ny } = terrain.land
+      todayShore = (shoreOutline(terrain) ?? []).map((ring: number[][]) => {
+        const line = ring.filter((_, i) => i % 3 === 0).map(([x, y]) => [west + (x / nx) * (east - west), north - (y / ny) * (north - south)])
+        return [...line, line[0]]
+      })
+      // Swap today's land-and-water mask for the 1880s one, so the map shows water where the
+      // city has since filled it in. The heights stay as they are; filled ground is drawn at sea level.
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}data/district/land-1880s.json`)
+        terrain = { ...terrain, land: await response.json() }
+        // the 1880s water's edge as lines too, to letter its name along it
+        thenShore = (shoreOutline(terrain) ?? []).map((ring: number[][]) => {
+          const line = ring.filter((_, i) => i % 3 === 0).map(([x, y]) => [west + (x / nx) * (east - west), north - (y / ny) * (north - south)])
+          return [...line, line[0]]
+        })
+      } catch {
+        // keep today's shoreline if the file cannot be read
+      }
+    }
+    data = { ...loaded, terrain, trees: null }
+  })
+  const proj = $derived(data?.streets ? makeProj(mapBbox(data.surveyed, data.streets.bbox)) : null)
+  const ready = $derived(!!(data && proj && data.surveyed.length && data.foot))
+  const colourOf = () => hexOf(css('--m3-bldg'))
+
+  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][]) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
+  let mapReady = $state(false)
+  let fail = $state('')
+  let active = $state(0)
+
+  const siteById = $derived(new Map(chapter.sites.map((s) => [s.id, s])))
+  const event = (id?: string) => chapters.flatMap((c) => c.events).find((e) => e.id === id)
+
+  // The stop nearest the middle of the window is the active one.
+  let sections = $state<HTMLElement[]>([])
+  onMount(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) active = Number((entry.target as HTMLElement).dataset.index)
+        }
+      },
+      { rootMargin: '-50% 0px -50% 0px' },
+    )
+    sections.forEach((el) => el && observer.observe(el))
+    // Scrolling settles on the next card, centred in the window.
+    const root = document.documentElement
+    root.style.scrollSnapType = 'y mandatory'
+    return () => {
+      observer.disconnect()
+      root.style.scrollSnapType = ''
+    }
+  })
+
+  // Move the camera and redraw the marks whenever the active stop changes.
+  const routeById = $derived(new Map(chapter.routes.map((r) => [r.id, r])))
+  let first = true
+  let drawing = 0 // the route animation in flight, so a newer stop can cancel it
+
+  /** The first `share` of a line, by length, ending on an interpolated point. */
+  function partial(points: [number, number][], share: number): number[][] {
+    const lengths = points.slice(1).map((p, i) => Math.hypot(p[0] - points[i][0], p[1] - points[i][1]))
+    let remaining = lengths.reduce((a, b) => a + b, 0) * share
+    const out: number[][] = [points[0]]
+    for (let i = 0; i < lengths.length && remaining > 0; i++) {
+      const [a, b] = [points[i], points[i + 1]]
+      const t = Math.min(1, remaining / lengths[i])
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
+      remaining -= lengths[i]
+    }
+    return out
+  }
+
+  /** Metres of ground to one pixel of screen at a stop's view. */
+  const mPerPxOf = (layout: { metresPerPx: number } | null, stop: { view: { dist: number } }) =>
+    layout ? layout.metresPerPx : (stop.view.dist * 2 * Math.tan((20 * Math.PI) / 180)) / window.innerHeight
+
+  $effect(() => {
+    const stop = chapter.stops[active]
+    if (!mapReady || !map || !stop) return
+    const mapNow = map
+    const sites = stop.sites.map((id) => siteById.get(id)).filter((s): s is Site => !!s)
+    const pairs = (stop.paths ?? []).map((pair) =>
+      pair.map((id) => siteById.get(id)).filter((s): s is Site => !!s).map((s) => [s.lon, s.lat]),
+    )
+    const routes = (stop.routes ?? []).map((id) => routeById.get(id)).filter((r) => !!r)
+    const tracks = routes.filter((r) => r.track)
+    const still = routes.filter((r) => !r.drawIn && !r.solid && !r.track).map((r) => r.points)
+    const shore = [...oldShore, ...routes.filter((r) => r.solid).map((r) => r.points)] // solid lines
+    const moving = routes.filter((r) => r.drawIn && !r.track)
+
+    // The text panel covers the left of the window, so the subject is framed in the middle of
+    // what is left: the space between the panel's right edge and the window's.
+    const width = window.innerWidth
+    // the card's right edge: its left padding (wider from md up, to clear the chapter rail), its width, a gap
+    const panelRight = Math.min(width, (width >= 768 ? 64 : 16) + 384 + 16)
+    const offsetX = width >= 640 ? (panelRight + width) / 2 / width - 0.5 : 0
+    const flight = first ? 0 : 2200
+    // A stop with an annotation is framed by it; its rings, leaders and names go on the ground.
+    const layout = stop.annotation ? layoutAnnotation(stop.annotation, { width, height: window.innerHeight, panelRight }) : null
+    // A period map's lines go under the annotation, fainter than it.
+    const context = stop.context ? [{ lines: stop.context.lines, dash: [mPerPxOf(layout, stop) * 3, mPerPxOf(layout, stop) * 6] as [number, number], width: 0.8, colour: '#555555', opacity: 0.8 }, { lines: stop.context.minor ?? [], dash: [mPerPxOf(layout, stop) * 1, mPerPxOf(layout, stop) * 4] as [number, number], width: 0.7, colour: '#666666', opacity: 0.6 }] : []
+    // Burned ground: a charcoal smudge. Where the stop says where the fire began, it starts with
+    // nothing burned and spreads out from there once the camera has settled.
+    const burnArea = stop.context?.burnArea
+    const BURN_OPACITY = 0.42
+    const burnFrom = stop.context?.burnFrom
+    const burnMax = burnArea && burnFrom
+      ? Math.max(...burnArea.map(([lon, lat]) => Math.hypot((lon - burnFrom[0]) * 72_600, (lat - burnFrom[1]) * 111_200))) + 60
+      : 0
+    mapNow.burn(burnArea ? { poly: burnArea, from: burnFrom ?? burnArea[0], colour: '#2a2a2a', opacity: BURN_OPACITY, reach: burnFrom ? 0 : 1e6 } : null)
+    // Streets of the time: their edges, cut into block outlines, as the lightest line on the map.
+    const streetEdges = stop.context?.streets ?? []
+    const streetStyle = { width: 0.45, colour: '#a6a6a6', opacity: 0.55 }
+    const streetGroup = streetEdges.length ? [{ lines: streetEdges, ...streetStyle }] : []
+    // A stop can hold back its subheadings until its buildings have risen.
+    const labelsLater = !!stop.labelsAfterRise && !!stop.rises?.length
+    const featureFine = layout ? layout.featureFine : []
+    const featureLabels = layout ? layout.featureLabels : []
+    const restFine = [...context, ...(layout ? layout.fine : []), ...(labelsLater ? [] : featureFine)]
+    const laterFine = [...context, ...(layout ? layout.fine : []), ...featureFine]
+    // Streets that draw themselves in, nearest the starting point first.
+    const streetsFrom = stop.context?.streetsFrom
+    const streetOrder = streetsFrom
+      ? [...streetEdges].sort(
+          (a, b) =>
+            Math.hypot(a[0][0] - streetsFrom[0], (a[0][1] - streetsFrom[1]) * 1.53) -
+            Math.hypot(b[0][0] - streetsFrom[0], (b[0][1] - streetsFrom[1]) * 1.53),
+        )
+      : []
+    const streetsAt = (k: number) => {
+      const n = streetOrder.length
+      const lines = streetOrder.flatMap((line, i) => {
+        const share = Math.max(0, Math.min(1, (k * n * 1.6 - i) / (n * 0.6)))
+        return share > 0 ? [partial(line as [number, number][], share)] : []
+      })
+      return lines.length ? [{ lines, ...streetStyle }] : []
+    }
+    const baseFine = [...(streetsFrom ? [] : streetGroup), ...restFine]
+    // A railway: two rails and the ties across them, drawn as the map symbol rather than to gauge,
+    // so it reads at any distance. `share` is how much of each line has been laid.
+    const trackPx = mPerPxOf(layout, stop)
+    const trackFine = (share: number) => {
+      const rails: number[][][] = []
+      const ties: number[][][] = []
+      for (const r of tracks) {
+        const pts = partial(r.points, share)
+        if (pts.length < 2) continue
+        const [lon0, lat0] = pts[0]
+        const kx = 111_320 * Math.cos((lat0 * Math.PI) / 180)
+        const ky = 111_200
+        const m = pts.map(([lon, lat]) => [(lon - lon0) * kx, (lat - lat0) * ky])
+        const back = ([x, y]: number[]) => [lon0 + x / kx, lat0 + y / ky]
+        const gauge = trackPx * 1.5
+        const left: number[][] = []
+        const right: number[][] = []
+        m.forEach((p, i) => {
+          const a = m[Math.max(0, i - 1)]
+          const b = m[Math.min(m.length - 1, i + 1)]
+          const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+          const nx = -(b[1] - a[1]) / len
+          const ny = (b[0] - a[0]) / len
+          left.push(back([p[0] + nx * gauge, p[1] + ny * gauge]))
+          right.push(back([p[0] - nx * gauge, p[1] - ny * gauge]))
+        })
+        rails.push(left, right)
+        // a tie every few pixels along the line, reaching a little past each rail
+        const every = trackPx * 6
+        const reach = trackPx * 3.4
+        let carried = 0
+        for (let i = 1; i < m.length; i++) {
+          const [ax, ay] = m[i - 1]
+          const [bx, by] = m[i]
+          const len = Math.hypot(bx - ax, by - ay)
+          if (!len) continue
+          const tx = (bx - ax) / len
+          const ty = (by - ay) / len
+          let d = carried
+          for (; d <= len; d += every) {
+            const cx = ax + tx * d
+            const cy = ay + ty * d
+            ties.push([back([cx - ty * reach, cy + tx * reach]), back([cx + ty * reach, cy - tx * reach])])
+          }
+          carried = d - len
+        }
+      }
+      return rails.length ? [{ lines: rails, width: 1.1, colour: '#1f1f1f', opacity: 0.9 }, { lines: ties, width: 1, colour: '#1f1f1f', opacity: 0.85 }] : []
+    }
+    const laying = tracks.some((r) => r.drawIn)
+    mapNow.fine([...baseFine, ...trackFine(laying ? 0 : 1)])
+    // Lettering is sized in pixels for the view it will be seen from.
+    const mPerPx = mPerPxOf(layout, stop)
+    const mPerDegLon = 111_200 * Math.cos((49.285 * Math.PI) / 180)
+    const base = baseLabels.map((l) => {
+      if (l.text !== OLD_SHORE) return layout ? { ...l, size: Math.min(l.size, mPerPx * 13), offset: Math.min(l.offset, mPerPx * 6.5) } : l
+      // The 1880s shoreline's name: small and grey, and begun just outside an annotation's rings so it stays in frame.
+      const a = stop.annotation
+      // An annotation shows the shoreline's name only where it asks to: elsewhere it gets in the way.
+      if (a && !a.shoreName) return { ...l, text: '' }
+      const near = a ? [a.centre[0] + (a.radii[a.radii.length - 1] + mPerPx * 10) / mPerDegLon, a.centre[1]] : l.near
+      return { ...l, near, size: mPerPx * 7.5, offset: mPerPx * 5, tracking: 0.06 }
+    })
+    const own = (stop.lettering ?? []).map((l) => {
+      const line = [l.at, [l.at[0] + 0.08, l.at[1]]]
+      return { text: l.text, lines: [line], near: l.at, size: mPerPx * l.px, offset: 0, colour: l.colour ?? '#ffffff', forward: true, tracking: l.tracking }
+    })
+    const names = (stop.context?.names ?? []).map((n) => ({ text: n.text, lines: [n.along], near: n.along[0], size: mPerPx * 6.5, offset: mPerPx * 3, colour: '#666666', forward: true, tracking: 0.12 }))
+    const textNow = [...base.filter((l) => l.text), ...own, ...names, ...(layout ? layout.labels : [])]
+    mapNow.groundText(labelsLater ? textNow : [...textNow, ...featureLabels])
+    mapNow.fly({ ...(layout ? layout.view : stop.view), offsetX }, flight)
+    first = false
+
+    // The buildings standing at this stop, each placed at its site.
+    const standing = (stop.models ?? []).flatMap(([siteId, modelId]) => {
+      const site = siteById.get(siteId)
+      const model = buildingModels.find((b) => b.id === modelId)
+      if (!site || !model) return []
+      const [lon, lat] = model.anchor ?? [site.lon, site.lat]
+      return [{ lon, lat, bearing: (model.bearing * Math.PI) / 180, parts: model.parts, minBase: model.minBase ?? 0, piles: model.piles ?? false }]
+    })
+    const run = ++drawing
+    // Anything that travels in: placed at its start, then moved to its end once the camera has settled.
+    const arriving = (stop.arrivals ?? []).flatMap((a) => {
+      const model = buildingModels.find((b) => b.id === a.model)
+      if (!model) return []
+      const east = (a.to[0] - a.from[0]) * Math.cos((a.to[1] * Math.PI) / 180)
+      const north = a.to[1] - a.from[1]
+      const k = a.scale ?? 1
+      const parts = model.parts.map((part) => {
+        const big = { ...part, x: part.x * k, y: part.y * k, w: part.w * k, d: part.d * k }
+        if (big.kind === 'box') return { ...big, h: big.h * k, z0: (big.z0 ?? 0) * k }
+        return { ...big, eave: big.eave * k, ridge: big.ridge * k }
+      })
+      return [{ ...a, parts, bearing: Math.atan2(-east, north) }]
+    })
+    const placed = (share: number) =>
+      arriving.map((a) => ({
+        lon: a.from[0] + (a.to[0] - a.from[0]) * share,
+        lat: a.from[1] + (a.to[1] - a.from[1]) * share,
+        bearing: a.bearing,
+        parts: a.parts,
+        minBase: 0,
+      }))
+    // A burn, then a rebuild: the charcoal spreads from where the fire began, and once it has
+    // burned through, the buildings in `rises` grow up out of the ground one after another.
+    const BURN_MS = 4200
+    const rising = (stop.rises ?? []).flatMap(([siteId, modelId]) => {
+      const site = siteById.get(siteId)
+      const model = buildingModels.find((b) => b.id === modelId)
+      if (!site || !model) return []
+      const [lon, lat] = model.anchor ?? [site.lon, site.lat]
+      return model.parts.map((part) => ({ lon, lat, bearing: (model.bearing * Math.PI) / 180, part, minBase: model.minBase ?? 0, piles: model.piles ?? false }))
+    })
+    // Buildings standing when the stop opens that the fire takes: each sinks as the charcoal reaches it.
+    const burning = (stop.burns ?? []).flatMap(([siteId, modelId]) => {
+      const site = siteById.get(siteId)
+      const model = buildingModels.find((b) => b.id === modelId)
+      if (!site || !model) return []
+      const [lon, lat] = model.anchor ?? [site.lon, site.lat]
+      return model.parts.map((part) => ({ lon, lat, bearing: (model.bearing * Math.PI) / 180, part, minBase: model.minBase ?? 0, piles: model.piles ?? false }))
+    })
+    const metresFrom = (r: (typeof rising)[number], from: number[]) => {
+      const kx = 111_320 * Math.cos((from[1] * Math.PI) / 180)
+      return Math.hypot((r.lon - from[0]) * kx + r.part.x, (r.lat - from[1]) * 111_200 + r.part.y)
+    }
+    const heightened = (r: (typeof rising)[number], k: number) => {
+      const p = r.part
+      const q = p.kind === 'box' ? { ...p, h: Math.max(0.05, p.h * k), z0: (p.z0 ?? 0) * k } : { ...p, eave: Math.max(0.05, p.eave * k), ridge: Math.max(0.06, p.ridge * k) }
+      return { lon: r.lon, lat: r.lat, bearing: r.bearing, parts: [q], minBase: r.minBase, piles: r.piles }
+    }
+    const STREETS_MS = 2600
+    // Where the stop says where the town grew from, its buildings rise in order of distance from there.
+    if (stop.risesFrom) {
+      const [fx, fy] = stop.risesFrom
+      const kx = 111_320 * Math.cos((fy * Math.PI) / 180)
+      const at = (r: (typeof rising)[number]) => {
+        const p = r.part
+        return Math.hypot(r.lon + p.x / kx - fx, (r.lat + p.y / 111_200 - fy) * 1.53)
+      }
+      rising.sort((a, b) => at(a) - at(b))
+    }
+    mapNow.models([...standing, ...placed(0), ...burning.map((r) => heightened(r, 1))])
+    if (burnFrom || rising.length || streetsFrom) {
+      const start = performance.now() + flight * 0.8
+      const riseAt = start + (burnFrom ? BURN_MS + 900 : streetsFrom ? STREETS_MS * 0.55 : 0)
+      const each = 1400 // how long one building takes to rise
+      let labelled = false
+      const gap = rising.length > 1 ? Math.min(90, 4200 / rising.length) : 0
+      const step = (now: number) => {
+        if (run !== drawing) return
+        if (streetsFrom) mapNow.fine([...streetsAt(Math.max(0, Math.min(1, (now - start) / STREETS_MS))), ...(labelled ? laterFine : restFine)])
+        let reach = Infinity
+        if (burnFrom) {
+          const k = Math.max(0, Math.min(1, (now - start) / BURN_MS))
+          reach = burnMax * (1 - Math.pow(1 - k, 1.6))
+          mapNow.burnReach(reach)
+          // the charcoal lifts as the town starts to rise again
+          if (rising.length) {
+            const f = Math.max(0, Math.min(1, (now - riseAt) / 1600))
+            mapNow.burnOpacity(BURN_OPACITY * (1 - f * f * (3 - 2 * f)))
+          }
+        }
+        // The first in the list rises alone; the rest follow together, staggered.
+        const up = rising
+          .map((r, i) => {
+            const t0 = riseAt + (stop.risesFrom ? i * gap : i === 0 ? 0 : each * 0.7 + i * gap)
+            const k = Math.max(0, Math.min(1, (now - t0) / each))
+            return k > 0 ? heightened(r, 1 - Math.pow(1 - k, 3)) : null
+          })
+          .filter((m) => m !== null)
+        // what is still standing of the old town: each building sinks over the 25 m behind the fire's front
+        const left = burning.flatMap((r) => {
+          if (!burnFrom || now < start) return [heightened(r, 1)]
+          const k = 1 - Math.max(0, Math.min(1, (reach - metresFrom(r, burnFrom)) / 25))
+          return k > 0.02 ? [heightened(r, k)] : []
+        })
+        if (rising.length || burning.length) mapNow.models([...standing, ...left, ...up])
+        const end = riseAt + each * 0.7 + rising.length * gap + each
+        // once the last building is up, the subheadings and their leaders are drawn in
+        if (labelsLater && !labelled && now >= end) {
+          labelled = true
+          mapNow.groundText([...textNow, ...featureLabels])
+          mapNow.fine([...(streetsFrom ? streetsAt(1) : streetGroup), ...laterFine])
+        }
+        if (now < Math.max(labelsLater ? end + 50 : 0, end, burnFrom ? riseAt + 1600 : 0, streetsFrom ? start + STREETS_MS : 0)) requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+    }
+
+    // A railway is laid from its first point to its last once the camera has settled.
+    if (laying) {
+      const [from, duration] = [performance.now() + flight * 0.7, 5200]
+      const lay = (now: number) => {
+        if (run !== drawing) return
+        const t = Math.max(0, Math.min(1, (now - from) / duration))
+        if (t > 0) mapNow.fine([...baseFine, ...trackFine(t)])
+        if (t < 1) requestAnimationFrame(lay)
+      }
+      requestAnimationFrame(lay)
+    }
+
+    if (arriving.length) {
+      const [from, duration] = [performance.now() + flight * 0.8, 9000]
+      const glide = (now: number) => {
+        if (run !== drawing) return
+        const t = Math.max(0, Math.min(1, (now - from) / duration))
+        mapNow.models([...standing, ...placed(1 - Math.pow(1 - t, 2))]) // slowing as it nears the shore
+        if (t < 1) requestAnimationFrame(glide)
+      }
+      requestAnimationFrame(glide)
+    }
+
+    if (!moving.length) {
+      mapNow.marks(sites, [...pairs, ...still], shore)
+      return
+    }
+    // A route is drawn from its first point to its last, starting as the camera settles.
+    mapNow.marks(sites, [...pairs, ...still], shore)
+    const [delay, duration] = [flight * 0.6, 3200]
+    const start = performance.now() + delay
+    const frame = (now: number) => {
+      if (run !== drawing) return
+      const share = Math.max(0, Math.min(1, (now - start) / duration))
+      if (share > 0) mapNow.marks(sites, [...pairs, ...still, ...moving.map((r) => partial(r.points, share))], shore)
+      if (share < 1) requestAnimationFrame(frame)
+    }
+    requestAnimationFrame(frame)
+  })
+</script>
+
+<div class="relative bg-[var(--m3-sky)] text-[var(--ink)]">
+  <!-- The map: fixed behind everything, and deaf to the pointer -->
+  <div class="pointer-events-none sticky top-0 h-dvh w-full overflow-hidden">
+    {#if ready}
+      <Map3D
+        bind:this={map}
+        {data}
+        {proj}
+        scen={null}
+        mode="tenure"
+        theme="light"
+        plain
+        bare={chapter.bare}
+        {colourOf}
+        bandsOf={() => null}
+        sel={null}
+        onSelect={() => {}}
+        onHover={() => {}}
+        onFail={(message: string) => (fail = message)}
+        onBusy={() => {}}
+        onReady={() => {
+          map?.dotted(todayShore)
+          // Each shoreline named in lettering laid on the ground along it: today's in white beside its
+          // dashed line, the 1880s edge small and grey just off the shore, east of the mill.
+          baseLabels = [
+            { text: 'SHORELINE TODAY', lines: todayShore, near: [-123.0985, 49.289], size: 30, offset: 10, colour: '#ffffff' },
+            { text: OLD_SHORE, lines: thenShore, near: [-123.0908, 49.286], size: 24, offset: 10, colour: '#666666' },
+          ]
+          map?.groundText(baseLabels)
+          mapReady = true
+        }}
+      />
+    {/if}
+    {#if fail || !mapReady}
+      <p class="absolute right-4 bottom-4 rounded-md bg-white/85 px-3 py-1.5 text-xs text-[var(--ink-2)]">
+        {fail ? `The map could not start: ${fail}` : 'Drawing the map…'}
+      </p>
+    {/if}
+  </div>
+
+  <ChapterRail
+    {chapters}
+    current={chapter.chapterId}
+    cards={chapter.stops.map((s) => ({ title: s.title, kicker: s.kicker }))}
+    {active}
+    onGo={(i) => sections[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+  />
+
+  <!-- The story: one tall section per stop, pulled up over the map -->
+  <div class="relative -mt-[100dvh]">
+    {#each chapter.stops as stop, i (stop.id)}
+      {@const ev = event(stop.eventId)}
+      {@const source = stop.sourceId ? sourceById.get(stop.sourceId) : null}
+      <section bind:this={sections[i]} data-index={i} class="flex min-h-dvh snap-center snap-always items-center px-4 py-24 md:pr-10 md:pl-16">
+        <article
+          class="w-full max-w-sm rounded-lg bg-white/92 p-6 shadow-sm backdrop-blur-sm transition-opacity duration-500 {i === active ? 'opacity-100' : 'opacity-40'}"
+        >
+          {#if i === 0}
+            <p class="font-display mb-4 text-xs font-semibold tracking-wide text-[var(--ink-3)] uppercase">Chapter 1 · {chapter.title}</p>
+          {/if}
+          <p class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase tabular-nums">{stop.kicker}</p>
+          <h2 class="font-display mt-1 text-2xl font-semibold tracking-tight">{stop.title}</h2>
+          {#each stop.text as paragraph (paragraph)}
+            <p class="mt-3 leading-relaxed text-[var(--ink-2)]">{paragraph}</p>
+          {/each}
+
+          {#if stop.photos?.length}
+            <StopPhotos photos={stop.photos} />
+          {/if}
+
+          <!-- Sources and caveats, folded away until asked for -->
+          <details class="mt-4 border-t border-[var(--rule-soft)] pt-3 text-xs text-[var(--ink-3)]">
+            <summary class="font-display cursor-pointer tracking-wide uppercase select-none">Sources and notes</summary>
+            <div class="mt-2 space-y-1">
+            {#if ev}
+              <p>
+                {ev.verified ? 'Source' : 'Not yet verified. Check against'}:
+                {ev.citations.map((c) => sourceById.get(c.sourceId)).filter((src) => !!src).map((src) => `${src.author}, "${src.title}"`).join('; ')}
+              </p>
+            {:else if source}
+              <p>Source: {source.author}, {source.title}</p>
+            {/if}
+            {#if stop.context}
+              <p>{stop.context.note} {sourceById.get(stop.context.sourceId)?.author}.</p>
+            {/if}
+            {#each stop.sites as id (id)}
+              {@const site = siteById.get(id)}
+              {#if site && !site.located}
+                <p class="text-rose-700">{site.label}: location not yet confirmed.</p>
+              {/if}
+            {/each}
+            {#each stop.models ?? [] as [, modelId] (modelId)}
+              {@const model = buildingModels.find((b) => b.id === modelId)}
+              {#if model && model.basis === 'type'}
+                <p class="text-rose-700">{model.name}: drawn as a typical building, not from an image of it.</p>
+              {/if}
+            {/each}
+            {#each stop.routes ?? [] as id (id)}
+              {@const route = routeById.get(id)}
+              {#if route && !route.located}
+                <p class="text-rose-700">{route.caveat ?? "The dashed line follows today's tracks, as a stand-in for the original route."}</p>
+              {/if}
+            {/each}
+            </div>
+          </details>
+        </article>
+      </section>
+    {/each}
+
+  </div>
+</div>

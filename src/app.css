@@ -1,1 +1,190 @@
 @import 'tailwindcss';
+
+/*
+ * Type: DIN 2014 throughout, loaded from the Adobe Fonts web project linked in index.html.
+ * That project provides "din-2014" (regular, bold, and their italics) and "din-2014-narrow"
+ * (regular and bold). There is no semibold, so anything set semibold is drawn bold.
+ * If the Adobe project cannot load, a copy installed on the computer ("DIN 2014") is used,
+ * then DIN Alternate or DIN Condensed (macOS, bold only) for headings and labels, then the
+ * system sans-serif.
+ */
+@theme {
+  --font-sans: 'din-2014', 'DIN 2014', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'din-2014', 'DIN 2014', 'DIN Alternate', ui-sans-serif, system-ui, sans-serif;
+  --font-narrow: 'din-2014-narrow', 'DIN 2014 Narrow', 'DIN Condensed', ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Colour tokens for the 3D district map (src/lib/district). The map reads these
+ * by name, so changing a value here recolours the drawing. Copied from the light
+ * theme of sro_floorplate_optimizer (frontend/src/app.css) at commit e506b7b.
+ */
+:root {
+  color-scheme: light;
+  --paper: #f4f1ea;
+  --surface: #fbf9f5;
+  --sunk: #e4e7e0;
+  --ink: #2b2b2b;
+  --ink-2: #4f4f4c;
+  --ink-3: #8c8c88;
+  --rule: #cfd5cb;
+  --rule-soft: #e4e7e0;
+  --pass: #5b7a4a;
+  --pass-soft: #c5d1bd;
+  --fail: #c46a55;
+  --fail-soft: #f6dcd6;
+  --edge: #8a6a2f;
+  --edge-soft: #f7edc8;
+  --accent: #d98068;
+  /* model */
+  --m-ground: #f4f1ea;
+  --m-slab-sra: #f7edc8;
+  --m-slab-keep: #f5e39a;
+  --m-slab-unit: #c5d1bd;
+  --m-slab-short: #f0c2b8;
+  --m-wall: #8c8c88;
+  --m-pod: #b9c1b8;
+  --m-select: #c46a55;
+  --map-ink: #cfd5cb;
+  --map-arterial: #8c8c88;
+  --map-dot: #d98068;
+  --map-dot-sel: #c46a55;
+  --map-market: #5a6f9a;        /* private: a muted indigo */
+  --map-nonmarket: #c3c8e6;     /* public: a pale periwinkle */
+  --map-market-lit: #7a8db5;
+  --map-nonmarket-lit: #d6daef;
+  /* the typical floor: kept rooms on paper, converted units in the park green, a unit under the minimum in salmon */
+  --plan-keep: #d8ebe5;
+  --plan-keep-line: #6f9c92;
+  --plan-unit: #dfe3c3;
+  --plan-unit-line: #7d8f66;
+  --plan-short: #f3d6cb;
+  --plan-short-line: #e18f7c;
+  --plan-circ: #ffffff;
+  --map-unsurveyed: #b9c1b8;
+  --scen-0: #f6e8b4;
+  --scen-1: #e9a090;
+  /* the policy map's four classes of tenants displaced: none, a few, some, many */
+  --scen-c0: #f6e8b4;
+  --scen-c1: #eec98f;
+  --scen-c2: #ebb08e;
+  --scen-c3: #e18f7c;
+  --scen-x: #8da2b8;        /* cannot convert: a slate blue against the yellow-to-salmon ramp */
+  --scen-works: #b9c1b8;
+  /* where every tenant goes: the ramp's salmon, the butter yellow for a new unit (the parks own the greens), a quiet blue-green grey for a room kept, slate for a building left as it is */
+  --who-lost: #e18f7c;
+  --who-unit: #f6e8b4;
+  --who-keep: #b9c9c6;
+  --who-stuck: #8da2b8;
+  --map-foot: #e4e7e0;
+  --map-foot-line: #b9c1b8;
+  --m3-ground: #f4f1ea;
+  --m3-sky: #f4f1ea;
+  --m3-void: #f4f1ea;       /* the ground beyond the data */
+  --m3-grid: #dcd8ce;       /* the grid drawn over it */
+  --m3-grid-m: 200;         /* its spacing, metres */
+  --m3-bldg: #fdfcfa;
+  --m3-street: #cfd5cb;
+  --m3-lane: #faf9f6;
+  --m3-glass: #2e3634;
+  --m3-trim: #f3eee2;
+  --m3-water: #bcc4c0;
+  --m3-road: #ffffff;
+  --m3-walk: #f4f1ea;
+  --m3-park: #d6d8b4;
+  --m3-park-low: #7d8f66;
+  --m3-park-stipple: #5f6e48;
+  --m3-exposure: 1;
+  /* edges of the 3D buildings: colour and screen width, context then SRO,
+     and how much graphite grain breaks the line (0 solid, 1 full) */
+  --m3-edge: #2b2b2b;
+  --m3-edge-w: 0.75;
+  --m3-edge-sro: #2b2b2b;
+  --m3-edge-sro-w: 0.9;
+  --m3-edge-grain: 0.2;
+  --m3-contour: #cfd5cb;
+  --m3-contour-park: #ffffff;
+  --m3-road-line: #2b2b2b;
+  --m3-road-line-a: 0.35;
+  --m3-curb: #cfd5cb;
+  --m3-sidewalk: #f7f6f2;
+  --m3-tree: #a3c184;
+  --m3-tree-dark: #5f7f4b;
+  --m3-tree-alpha: 1;   /* canopy opacity; 1 is solid */
+  --m3-trunk: #6f6f6b;
+  --map-water: #bcc4c0;
+  --map-road: #ffffff;
+  --map-walk: #f4f1ea;
+  --map-park: #c5d1bd;
+}
+
+/*
+ * The base map in greyscale. These override the copied tokens above, so the
+ * optimizer's palette stays intact for reference and every grey is set here.
+ * No value in this block carries a hue.
+ */
+:root {
+  --paper: #f0f0f0;
+  --surface: #fafafa;
+  --ink: #2b2b2b;
+  --ink-2: #4f4f4f;
+  --ink-3: #8c8c8c;
+  --rule: #d0d0d0;
+  --rule-soft: #e4e4e4;
+
+  /* the backdrop beyond the data, and the grid drawn over it */
+  --m3-sky: #e0e0e0;
+  --m3-void: #e0e0e0;
+  --m3-grid: #d0d0d0;
+  --m3-grid-water: #e9e9e9; /* the same grid where it crosses the water: a whitish grey */
+  --m3-grid-w: 0.45; /* the grid's weight: 1 is a one-pixel line, less is finer, 0 is no grid */
+
+  /* lines in the water: their colour, how solid they are, and which lines they are.
+     depth: the sea bed's depth contours, from the Canadian Hydrographic Service's survey.
+     shore: drawn lines following the shore at widening distances, with no depth meaning. */
+  --m3-water-line: #ffffff;
+  --m3-water-line-kind: depth;
+  --m3-water-line-a: 0.9;
+
+  /* land, streets and buildings */
+  --m3-ground: #e9e9e9;
+  --m3-road: #ffffff;
+  --m3-walk: #f0f0f0;
+  --m3-sidewalk: #f6f6f6;
+  --m3-lane: #fafafa;
+  --m3-curb: #b4b4b4;
+  --m3-contour: #6f6f6f;
+  --m3-contour-park: #ffffff;
+  --m3-bldg: #ffffff;
+  --m3-road-line: #1f1f1f;
+  --m3-road-line-a: 0.5;
+
+  /* water and green space: the same textures in charcoal tones, the water
+     the darker of the two and the parks only a little off the land */
+  --m3-water: #b0b0b0;
+  --m3-park: #dfdfdf;
+  --m3-park-low: #cecece;
+  --m3-park-stipple: #b6b6b6;
+
+  /* an SRO's outline is no heavier than any other building's */
+  --m3-edge: #1f1f1f;
+  --m3-edge-w: 0.95;
+  --m3-edge-sro: #1f1f1f;
+  --m3-edge-sro-w: 0.95;
+
+  /* relief: how strongly the land is shaded by its slope (0 turns it off), how much the
+     slope is steepened for the shading only (the ground stays at true height), and how
+     much the paper's grain breaks the shading up (0 is smooth, 1 is full charcoal). */
+  --m3-relief: 0; /* off. Set to about 0.8 to bring the slope shading back */
+  --m3-relief-steepen: 5;
+  --m3-relief-grain: 1;
+
+  /* railways: the rail line, its width on screen, and the raised bed under it */
+  /* today's shoreline, dotted over an older one */
+  --m3-mark-dot: #ffffff;
+
+  --m3-rail: #707070;
+  --m3-rail-w: 1.2;
+  --m3-rail-bed: #f8f8f8;
+  --m3-rail-shoulder: #e6e6e6;
+}

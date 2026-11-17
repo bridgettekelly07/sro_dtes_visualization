@@ -1,8 +1,10 @@
 <script lang="ts">
-  const title: string = 'SRO DTES Visualization'
+  import MapStory from './lib/district/MapStory.svelte'
+  import { chapterOne } from './lib/data/stops'
+  // The page is chapter 1 told on the map. Other views are kept, not shown:
+  //   DistrictMap.svelte  the free-roaming base map, with zoom and orbit
+  //   StoryView.svelte    the chapters, timeline and room chart
+  //   CityAxon.svelte     the earlier line drawing made from the City's 2009 footprints
 </script>
 
-<main class="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-50 text-slate-900">
-  <h1 class="text-3xl font-semibold tracking-tight">{title}</h1>
-  <p class="text-slate-500">Scaffold is running. Visualization goes here.</p>
-</main>
+<MapStory chapter={chapterOne} />
