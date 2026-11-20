@@ -710,6 +710,56 @@
       }
       requestAnimationFrame(showStat)
     }
+    // People gathered in a place: the dots appear a few at a time once the camera has settled.
+    const crowd = stop.crowd
+    if (crowd && crowd.points.length) {
+      const t0 = performance.now() + flight * 0.8 + (crowd.after ?? 1500)
+      const gather = (now: number) => {
+        if (run !== drawing) return
+        const k = Math.max(0, Math.min(1, (now - t0) / 4000))
+        mapNow.dots(crowd.points.slice(0, Math.round(k * crowd.points.length)).map(([lon, lat]) => ({ lon, lat, r: crowd.r ?? 5 })))
+        if (k < 1) requestAnimationFrame(gather)
+      }
+      requestAnimationFrame(gather)
+    }
+
+    // People walking together: a column of dots moves along a route from its start to its end.
+    const pr = stop.procession
+    const prRoute = pr ? routeById.get(pr.route) : undefined
+    if (pr && prRoute && prRoute.points.length >= 2) {
+      const pts = prRoute.points
+      const kx = 111_320 * Math.cos((pts[0][1] * Math.PI) / 180)
+      const dist = [0]
+      for (let i = 1; i < pts.length; i++) dist.push(dist[i - 1] + Math.hypot((pts[i][0] - pts[i - 1][0]) * kx, (pts[i][1] - pts[i - 1][1]) * 111_200))
+      const total = dist[dist.length - 1]
+      const column = pr.length ?? 160
+      let seed = 1992
+      const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+      // each walker's place back along the column, and a little to one side
+      const people = Array.from({ length: pr.count }, () => ({ back: rand() * column, side: (rand() - 0.5) * 12 }))
+      const at = (d: number, side: number) => {
+        const c = Math.max(0, Math.min(total, d))
+        let i = 1
+        while (i < dist.length - 1 && dist[i] < c) i++
+        const a = pts[i - 1], b = pts[i]
+        const seg = dist[i] - dist[i - 1] || 1
+        const k = (c - dist[i - 1]) / seg
+        const ux = ((b[0] - a[0]) * kx) / seg, uy = ((b[1] - a[1]) * 111_200) / seg
+        return { lon: a[0] + (b[0] - a[0]) * k + (-uy * side) / kx, lat: a[1] + (b[1] - a[1]) * k + (ux * side) / 111_200 }
+      }
+      const t0 = performance.now() + flight * 0.8 + (pr.delay ?? 1500)
+      const ms = pr.ms ?? 16000
+      const marchStep = (now: number) => {
+        if (run !== drawing) return
+        const t = Math.max(0, Math.min(1, (now - t0) / ms))
+        // the head walks the whole route and the column closes up behind it at the end
+        const head = t * (total + column)
+        mapNow.dots(now < t0 ? [] : people.map((w) => ({ ...at(head - w.back, w.side), r: 6 })).filter((_, i) => head - people[i].back >= 0))
+        if (t < 1) requestAnimationFrame(marchStep)
+      }
+      requestAnimationFrame(marchStep)
+    }
+
     // People leaving: small figures walk out from the buildings, away from a place, and go.
     const sc = stop.scatter
     if (sc && sc.from.length) {

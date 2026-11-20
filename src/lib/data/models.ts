@@ -296,7 +296,7 @@ export const models: BuildingModel[] = [
     bearing: 0,
     basis: 'type',
     anchor: [landmarks.woodwards.lon, landmarks.woodwards.lat],
-    evidence: `Today's footprints at the corner of Hastings and Abbott, standing in for the store Woodward's established there in 1903. The store was enlarged many times and largely rebuilt in 2010; its 1903 outline has not been traced.`,
+    evidence: `The large brick building on the block north of Hastings between Abbott and Cambie in Goad's 1912 atlas: the store as it stood in 1912, after its first additions, raised to an assumed 20 m. The store of 1903 was smaller and the store of later years filled the block; neither outline has been traced. It was demolished in 2006 but for its oldest corner.`,
     parts: prisms('woodwards'),
   },
   {

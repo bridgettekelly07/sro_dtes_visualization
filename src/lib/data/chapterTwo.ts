@@ -95,7 +95,7 @@ export const chapterTwo: MapChapter = {
   oldShoreline: true,
   sites: [
     { id: 'carnegie', label: 'Carnegie Library, 1903', stem: 18, lon: landmarks.carnegie.lon, lat: landmarks.carnegie.lat, located: true, basis: "Today's building at 401 Main Street, at the south-west corner of Main and Hastings." },
-    { id: 'woodwards', label: "Woodward's, 1903", stem: 24, lon: landmarks.woodwards.lon, lat: landmarks.woodwards.lat, located: true, basis: "Today's footprints at the south-west corner of Hastings and Abbott." },
+    { id: 'woodwards', label: "Woodward's, 1903", stem: 24, lon: landmarks.woodwards.lon, lat: landmarks.woodwards.lat, located: true, basis: "The store as Goad's 1912 atlas draws it, on the block north of Hastings between Abbott and Cambie: larger than the store of 1903, whose outline is not traced." },
     { id: 'cpr-station', label: 'CPR station', stem: 12, lon: CPR_STATION[0], lat: CPR_STATION[1], located: true, basis: "The brick building at the head of Granville Street on the Canadian Pacific's tracks in Goad's 1912 atlas: the station of 1898 to 1914." },
     { id: 'cpr-pier', label: 'CPR pier and sheds', stem: 8, lon: CPR_PIER[0], lat: CPR_PIER[1], located: true, basis: "The freight sheds on the pier out from the foot of Granville in Goad's 1912 atlas." },
     { id: 'bcer', label: 'Interurban terminal, 1911', stem: 26, lon: landmarks.bcer.lon, lat: landmarks.bcer.lat, located: true, basis: "Today's building at 425 Carrall Street, at the south-west corner of Carrall and Hastings." },

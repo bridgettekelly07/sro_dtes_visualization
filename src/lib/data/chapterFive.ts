@@ -20,18 +20,18 @@ import { cprLine1912 } from './cpr1912'
 import expo1986 from './expo1986.json'
 import streets1986 from './streets1986.json'
 
-const SOUTH = Math.PI / 2
-const RED = '#8e4233'
-const DARK = '#3b3b3b'
+export const SOUTH = Math.PI / 2
+export const RED = '#8e4233'
+export const DARK = '#3b3b3b'
 // the streets filled white on their centrelines, and their edges drawn over them as a fine dark line
-const streets = streets1887.edges as number[][][]
-const streetFill = streets1986.lines as number[][][]
+export const streets = streets1887.edges as number[][][]
+export const streetFill = streets1986.lines as number[][][]
 const ring = (k: string) => (districts as unknown as Record<string, [number, number][]>)[k]
-const corner = districts.corners as unknown as Record<string, [number, number]>
+export const corner = districts.corners as unknown as Record<string, [number, number]>
 const cleared = [ring('macleanHousing'), ring('macleanPark'), ring('raymur'), ring('hogansWest')]
 const inAny = (rings: [number, number][][], b: { lon: number; lat: number }) => rings.some((r) => inRing(b.lon, b.lat, r))
 
-const hotels = (sroByYear.buildings as unknown as (GrowthBuilding & { rooms?: number })[]).map((h, i) => {
+export const hotels = (sroByYear.buildings as unknown as (GrowthBuilding & { rooms?: number })[]).map((h, i) => {
   const ground = (sroGround.ground as number[])[i]
   return { ...h, ground, built: h.built == null ? null : Math.max(h.built, ground) }
 })
@@ -40,38 +40,50 @@ const landmarkRings = [landmarks.carnegie, landmarks.woodwards, landmarks.bcer, 
 const sameRing = (a: [number, number][], b: [number, number][]) => a.length === b.length && a[0][0] === b[0][0] && a[0][1] === b[0][1]
 const underLandmark = (b: { lon: number; lat: number; parts: { ring: [number, number][] }[] }) => landmarkRings.some((r) => inRing(b.lon, b.lat, r) || b.parts.some((p) => sameRing(p.ring, r)))
 
-const survivors = (builtBy1986.buildings as { ring: [number, number][]; h: number; built: number }[]).map((b) => {
-  const lon = b.ring.reduce((a, p) => a + p[0], 0) / b.ring.length
-  const lat = b.ring.reduce((a, p) => a + p[1], 0) / b.ring.length
-  return { name: '', built: b.built, lon, lat, parts: [{ kind: 'prism' as const, x: 0, y: 0, ring: b.ring, h: b.h }] }
-})
-const standingBy = (year: number): GrowthBuilding[] => survivors.filter((b) => b.built <= year && !underHotel(b) && !underLandmark(b))
-const cellOf = (lon: number, lat: number) => `${Math.floor(lon * 720)}:${Math.floor(lat * 1112)}`
-const survivorCells = new Map<string, { ring: [number, number][]; built: number }[]>()
-for (const b of survivors) {
-  for (const p of b.parts) {
-    const lons = p.ring.map((q) => q[0])
-    const lats = p.ring.map((q) => q[1])
-    for (let x = Math.floor(Math.min(...lons) * 720); x <= Math.floor(Math.max(...lons) * 720); x++)
-      for (let y = Math.floor(Math.min(...lats) * 1112); y <= Math.floor(Math.max(...lats) * 1112); y++) {
-        const k = `${x}:${y}`
-        if (!survivorCells.has(k)) survivorCells.set(k, [])
-        survivorCells.get(k)!.push({ ring: p.ring, built: b.built })
-      }
-  }
-}
-const underSurvivorBy = (year: number) => (b: { lon: number; lat: number }) => (survivorCells.get(cellOf(b.lon, b.lat)) ?? []).some((sv) => sv.built <= year && inRing(b.lon, b.lat, sv.ring))
-/** The faint stand-ins behind the survivors: the 1912 atlas where no survivor of the card's year stands, and not in the blocks the 1960s cleared. */
-const backdrop = (year: number): GrowthBuilding[] => districtTo(1912, (b) => underHotel(b) || underSurvivorBy(year)(b) || inAny(cleared, b))
-const landmark = (id: string, fill?: string): GrowthBuilding[] => {
+export const landmark = (id: string, fill?: string): GrowthBuilding[] => {
   const m = buildingModels.find((x) => x.id === id)
   if (!m || !m.anchor) return []
   return [{ name: m.name, built: 1903, fill, lon: m.anchor[0], lat: m.anchor[1], parts: m.parts.filter((p) => p.kind === 'prism') as GrowthBuilding['parts'] }]
 }
-const anchors = (carnegie?: string): GrowthBuilding[] => [...landmark('carnegie-1903', carnegie), ...landmark('woodwards-1903'), ...landmark('bcer-1912')]
-const hotelsBy = (year: number, fill: (h: (typeof hotels)[number]) => string | undefined = () => RED) =>
+export const anchors = (carnegie?: string): GrowthBuilding[] => [...landmark('carnegie-1903', carnegie), ...landmark('woodwards-1903'), ...landmark('bcer-1912')]
+export const hotelsBy = (year: number, fill: (h: (typeof hotels)[number]) => string | undefined = () => RED) =>
   hotels.filter((h) => (h.built ?? 9999) <= year).map((h) => ({ ...h, fill: fill(h) }))
-const city = (year: number, carnegie?: string, hotelFill?: (h: (typeof hotels)[number]) => string | undefined): GrowthBuilding[] => [...standingBy(year), ...anchors(carnegie), ...hotelsBy(year, hotelFill)]
+
+/**
+ * The city of a later year, from a set of today's footprints dated by the property records
+ * (builtBy1986.json, builtBy2003.json): `standingBy` the survivors of a year, `backdrop` the faint 1912
+ * stand-ins on the lots where no survivor of that year stands, `city` the survivors with the landmarks
+ * and the hotels. Chapters 5 and 6 share it.
+ */
+export function cityFrom(dated: { ring: [number, number][]; h: number; built: number }[]) {
+  const survivors = dated.map((b) => {
+    const lon = b.ring.reduce((a, p) => a + p[0], 0) / b.ring.length
+    const lat = b.ring.reduce((a, p) => a + p[1], 0) / b.ring.length
+    return { name: '', built: b.built, lon, lat, parts: [{ kind: 'prism' as const, x: 0, y: 0, ring: b.ring, h: b.h }] }
+  })
+  const standingBy = (year: number): GrowthBuilding[] => survivors.filter((b) => b.built <= year && !underHotel(b) && !underLandmark(b))
+  const cellOf = (lon: number, lat: number) => `${Math.floor(lon * 720)}:${Math.floor(lat * 1112)}`
+  const survivorCells = new Map<string, { ring: [number, number][]; built: number }[]>()
+  for (const b of survivors) {
+    for (const p of b.parts) {
+      const lons = p.ring.map((q) => q[0])
+      const lats = p.ring.map((q) => q[1])
+      for (let x = Math.floor(Math.min(...lons) * 720); x <= Math.floor(Math.max(...lons) * 720); x++)
+        for (let y = Math.floor(Math.min(...lats) * 1112); y <= Math.floor(Math.max(...lats) * 1112); y++) {
+          const k = `${x}:${y}`
+          if (!survivorCells.has(k)) survivorCells.set(k, [])
+          survivorCells.get(k)!.push({ ring: p.ring, built: b.built })
+        }
+    }
+  }
+  const underSurvivorBy = (year: number) => (b: { lon: number; lat: number }) => (survivorCells.get(cellOf(b.lon, b.lat)) ?? []).some((sv) => sv.built <= year && inRing(b.lon, b.lat, sv.ring))
+  /** The faint stand-ins behind the survivors: the 1912 atlas where no survivor of the card's year stands, and not in the blocks the 1960s cleared. */
+  const backdrop = (year: number): GrowthBuilding[] => districtTo(1912, (b) => underHotel(b) || underSurvivorBy(year)(b) || inAny(cleared, b))
+  const city = (year: number, carnegie?: string, hotelFill?: (h: (typeof hotels)[number]) => string | undefined): GrowthBuilding[] => [...standingBy(year), ...anchors(carnegie), ...hotelsBy(year, hotelFill)]
+  return { standingBy, backdrop, city }
+}
+const { standingBy, backdrop, city } = cityFrom(builtBy1986.buildings as { ring: [number, number][]; h: number; built: number }[])
+void standingBy
 
 // Stand-ins for the hotels the by-law closed or that came down: the project has no list of them, so these
 // are the larger brick buildings of the faint 1912 backdrop in the hotel blocks, picked at random (seeded),
@@ -97,11 +109,11 @@ const lostHotels: GrowthBuilding[] = (() => {
 })()
 const backdrop1974 = backdrop(1974).filter((b) => !lostHotels.some((l) => l.lon === b.lon && l.lat === b.lat))
 
-const CITY = `The buildings drawn in full are today's footprints at their LiDAR heights, kept where the City's property records date the lot's building to the card's year or before: the survivors. The faint buildings behind them are those of Goad's 1912 atlas on the lots where no survivor is shown, standing in for buildings of the time since demolished; anything built after 1912 and demolished since is missing. Beyond the district the survivors reach the edges of the map, from the City's wider 2009 footprints dated the same way; lots with no year in the records are left empty. The streets are filled white on today's centrelines, without the bridges (modelled) or the streets laid out on the fair's grounds after 1986, where OpenHistoricalMap's roads of 1986 stand instead; a few streets of later developments elsewhere may show.`
-const SHORE = `From this chapter on the shore is today's: the filling of False Creek's flats and of the inlet's waterfront was done, and what changed after (the creek's north shore rebuilt for the fair, the seawall, the shore at the towers' sites) is small at the map's scale. It is a stand-in for the shore of each card's year, not traced from a map of the time. The railways are the Canadian Pacific's waterfront line as the 1912 atlas draws it, and on the flats today's centrelines kept where they lie on the fill.`
-const edges = { width: 0.55, colour: '#7a7a7a' }
-const streetStyle = { width: 0.5, colour: '#3b3b3b', opacity: 0.6 }
-const rail = flats1917.rail as [number, number][][]
+export const CITY = `The buildings drawn in full are today's footprints at their LiDAR heights, kept where the City's property records date the lot's building to the card's year or before: the survivors. The faint buildings behind them are those of Goad's 1912 atlas on the lots where no survivor is shown, standing in for buildings of the time since demolished; anything built after 1912 and demolished since is missing. Beyond the district the survivors reach the edges of the map, from the City's wider 2009 footprints dated the same way; lots with no year in the records are left empty. The streets are filled white on today's centrelines, without the bridges (modelled) or the streets laid out on the fair's grounds after 1986, where OpenHistoricalMap's roads of 1986 stand instead; a few streets of later developments elsewhere may show.`
+export const SHORE = `From this chapter on the shore is today's: the filling of False Creek's flats and of the inlet's waterfront was done, and what changed after (the creek's north shore rebuilt for the fair, the seawall, the shore at the towers' sites) is small at the map's scale. It is a stand-in for the shore of each card's year, not traced from a map of the time. The railways are the Canadian Pacific's waterfront line as the 1912 atlas draws it, and on the flats today's centrelines kept where they lie on the fill.`
+export const edges = { width: 0.55, colour: '#7a7a7a' }
+export const streetStyle = { width: 0.5, colour: '#3b3b3b', opacity: 0.6 }
+export const rail = flats1917.rail as [number, number][][]
 
 // 1986 from OpenHistoricalMap: the fair's zones and pavilions, its movers, the SkyTrain, the major roads
 type Line = [number, number][]
@@ -135,16 +147,16 @@ const moverRoutes = ex.movers.map((m, i) => ({
   located: true,
   basis: `${m.name || 'The fair\'s monorail'}, as OpenHistoricalMap maps it for the fair.`,
 }))
-const skytrainIds = skytrainRoutes.filter((r) => r.points.length >= 2).map((r) => r.id)
+export const skytrainIds = skytrainRoutes.filter((r) => r.points.length >= 2).map((r) => r.id)
 // two trains on the guideway, one each way, setting off once it is laid
-const trains = (after: number) => [
+export const trains = (after: number) => [
   { model: 'skytrain-car-1985', route: 'skytrain-guideway', ms: 26000, loop: true, after, fill: '#ffffff' },
   { model: 'skytrain-car-1985', route: 'skytrain-guideway', ms: 26000, loop: true, reverse: true, after: after + 9000, fill: '#ffffff' },
 ]
 const moverIds = moverRoutes.map((r) => r.id)
 const fairCentre: [number, number] = [-123.1080, 49.2745]
-const BRIDGES86 = `The Granville (1954), Burrard (1932) and new Cambie (8 December 1985) bridges are modelled from today's centrelines in the City's street data, as the project's main map draws them: decks climbing to their clearance on piers, the Burrard with its towers; the Georgia viaduct of 1972 as in chapter 4. Their decks' profiles are approximations, not surveyed.`
-const GUIDEWAY = `The SkyTrain's elevated guideway is modelled on OpenHistoricalMap's track from just east of Stadium station past Main Street station and along Terminal Avenue to the Grandview cut: one deck 9 m wide for the two tracks, following one of the two tracks so it runs without a break, kept 7 m above the ground, on piers every 30 m. Its real height varies and is not traced. West of Stadium the line is dashed in tunnel and drawn as track where it runs at grade. The trains are four-car trains of Mark I cars as a type, running each way.`
+export const BRIDGES86 = `The Granville (1954), Burrard (1932) and new Cambie (8 December 1985) bridges are modelled from today's centrelines in the City's street data, as the project's main map draws them: decks climbing to their clearance on piers, the Burrard with its towers; the Georgia viaduct of 1972 as in chapter 4. Their decks' profiles are approximations, not surveyed.`
+export const GUIDEWAY = `The SkyTrain's elevated guideway is modelled on OpenHistoricalMap's track from just east of Stadium station past Main Street station and along Terminal Avenue to the Grandview cut: one deck 9 m wide for the two tracks, following one of the two tracks so it runs without a break, kept 7 m above the ground, on piers every 30 m. Its real height varies and is not traced. West of Stadium the line is dashed in tunnel and drawn as track where it runs at grade. The trains are four-car trains of Mark I cars as a type, running each way.`
 const OHM = `The fair is drawn as OpenHistoricalMap's mappers reconstructed it from site plans and photographs (CC0): its pavilions and stands, dark, raised as low blocks at 8 m (or 4.5 m a storey where the map gives storeys), its monorail and people mover as solid lines and its gondolas dashed. The project has not checked it pavilion by pavilion.`
 
 export const chapterFive: MapChapter = {

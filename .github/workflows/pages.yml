@@ -4,7 +4,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [chapter-5, main]
+    branches: [chapter-6, chapter-5, main]
   workflow_dispatch:
 
 permissions:

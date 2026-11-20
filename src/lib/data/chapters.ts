@@ -329,7 +329,7 @@ export const chapters: Chapter[] = [
           { sourceId: 'thousand-dreams', note: 'Online sources disagree on the founding year: some give 1997, others 1998.' },
         ],
       }),
-      draft('woodsquat', 2002, 'Woodward\'s squat', 'Housing activists occupy the empty Woodward\'s building.', 'civil', 'respond', ['blomley-unsettling']),
+      draft('woodsquat', 2002, 'Woodward\'s squat', 'On 14 September 2002 housing activists occupy the empty Woodward\'s building, demanding social housing. Six days in, police arrest 54 squatters; a tent city on the sidewalk outside lasts until 12 December, when its residents accept hotel rooms.', 'civil', 'respond', ['blomley-unsettling', 'cbc-woodsquat-2022', 'cag-woodsquat']),
       draft('insite', 2003, 'Insite opens', 'Insite, the first legal supervised drug injection site in North America, opens in September 2003.', 'provincial', 'respond', [], {
         verified: true,
         citations: [
