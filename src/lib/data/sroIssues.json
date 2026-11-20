@@ -1,0 +1,198 @@
+{
+ "source": "City of Vancouver Open Data, 'Rental standards: current issues', matched to the 2024 SRO list by address. Made by scripts/build-sro-issues.py.",
+ "retrieved": "2026-11-20",
+ "issues": {
+  "DECKER RESIDENCE": {
+   "open": 26,
+   "units": 38
+  },
+  "ROSS HOUSE": {
+   "open": 8,
+   "units": 24
+  },
+  "LAUREL APARTMENTS": {
+   "open": 1,
+   "units": 46
+  },
+  "RAINIER HOTEL": {
+   "open": 3,
+   "units": 41
+  },
+  "WEST HOTEL": {
+   "open": 7,
+   "units": 98
+  },
+  "WONDER ROOMS": {
+   "open": 9,
+   "units": 39
+  },
+  "CENTRAL RESIDENCE": {
+   "open": 5,
+   "units": 65
+  },
+  "METRO RESIDENCE": {
+   "open": 2,
+   "units": 39
+  },
+  "GEORGIA MANOR": {
+   "open": 1,
+   "units": 26
+  },
+  "MT EVEREST ROOMS": {
+   "open": 1,
+   "units": 26
+  },
+  "AFTON HOTEL/ROOMS": {
+   "open": 1,
+   "units": 39
+  },
+  "HOLBORN HOTEL": {
+   "open": 2,
+   "units": 33
+  },
+  "ORWELL HOTEL": {
+   "open": 1,
+   "units": 52
+  },
+  "PATRICK ANTHONY RESIDENCE": {
+   "open": 47,
+   "units": 54
+  },
+  "DODSON ROOMS": {
+   "open": 2,
+   "units": 70
+  },
+  "HOTEL WASHINGTON (MAPLE HOTEL)": {
+   "open": 1,
+   "units": 81
+  },
+  "EMPRESS HOTEL": {
+   "open": 2,
+   "units": 74
+  },
+  "TOI SAN BENEVOLENT (TOI SHAN BENEVOLENT / PHOENIX HOTEL)": {
+   "open": 3,
+   "units": 60
+  },
+  "SUMMER HOTEL": {
+   "open": 9,
+   "units": 26
+  },
+  "SHAMROCK HOTEL": {
+   "open": 3,
+   "units": 28
+  },
+  "ARLINGTON ROOMS": {
+   "open": 2,
+   "units": 27
+  },
+  "NEW SUN AH HOTEL": {
+   "open": 11,
+   "units": 45
+  },
+  "SIESTA ROOMS": {
+   "open": 16,
+   "units": 71
+  },
+  "ST. HELEN'S HOTEL": {
+   "open": 4,
+   "units": 93
+  },
+  "HARBOUR FRONT": {
+   "open": 1,
+   "units": 10
+  },
+  "IVANHOE HOTEL": {
+   "open": 5,
+   "units": 104
+  },
+  "COBALT HOTEL": {
+   "open": 3,
+   "units": 88
+  },
+  "LUCKY LODGE": {
+   "open": 1,
+   "units": 57
+  },
+  "YORK ROOMS (259 POWELL)": {
+   "open": 1,
+   "units": 35
+  },
+  "LION HOTEL": {
+   "open": 30,
+   "units": 79
+  },
+  "MARR HOTEL": {
+   "open": 1,
+   "units": 28
+  },
+  "55 POWELL (GRAND TRUNK)": {
+   "open": 1,
+   "units": 25
+  },
+  "KING ROOMS": {
+   "open": 1,
+   "units": 39
+  },
+  "POWELL ROOMS": {
+   "open": 2,
+   "units": 22
+  },
+  "HARBOUR ROOMS": {
+   "open": 7,
+   "units": 13
+  },
+  "HOTEL CANADA (MARBLE ARCH HOTEL)": {
+   "open": 6,
+   "units": 150
+  },
+  "HILDON HOTEL": {
+   "open": 1,
+   "units": 136
+  },
+  "TRAVELLER'S HOTEL": {
+   "open": 5,
+   "units": 54
+  },
+  "THE BEACON (BEACON HOTEL)": {
+   "open": 5,
+   "units": 36
+  },
+  "THE GRESHAM": {
+   "open": 5,
+   "units": 36
+  },
+  "CHELSEA INN": {
+   "open": 5,
+   "units": 31
+  },
+  "ARGYLE HOTEL": {
+   "open": 2,
+   "units": 36
+  },
+  "PALACE HOTEL": {
+   "open": 9,
+   "units": 32
+  },
+  "GOLDEN CROWN HOTEL": {
+   "open": 8,
+   "units": 28
+  },
+  "PARK HOTEL": {
+   "open": 6,
+   "units": 56
+  },
+  "STATION STREET HOTEL (PARK)": {
+   "open": 6,
+   "units": 56
+  },
+  "PICADILLY/PENDER PLACE (2)": {
+   "open": 2,
+   "units": 51
+  },
+  "GASTOWN HOTEL": {
+   "open": 1,
+   "units": 95
+  }
+ }
+}

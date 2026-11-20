@@ -74,6 +74,7 @@
   export function land(mask, ms) { d3 && d3.setLand(mask, ms); }
   export function bridges(on) { d3 && d3.setBridges(on); }
   export function dots(list) { d3 && d3.setDots(list); }
+  export function screenOf(lon, lat, h) { return d3 ? d3.screenOf(lon, lat, h) : null; }
   export function streetFill(lines, w) { d3 && d3.setStreetFill(lines, w); }
   export function edges(e) { d3 && d3.setModelEdge(e); }
   export function burnReach(m) { d3 && d3.setBurnReach(m); }

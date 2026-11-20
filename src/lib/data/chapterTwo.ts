@@ -58,15 +58,6 @@ const bcerIndex = footprintAt('brick', landmarks.bcer.lon, landmarks.bcer.lat)
 const terminals: GrowthBuilding[] = district
   .filter(isTerminal)
   .map((b) => ({ name: 'Canadian Pacific', built: 1912, fill: '#3b3b3b', lon: b.lon, lat: b.lat, piles: true, minBase: 2, parts: [{ kind: 'prism', x: 0, y: 0, ring: b.ring, h: b.kind === 'brick' ? 11 : 7 }] }))
-// The hotels graded by how far they stand from the station: the nearest in the full red, the farthest
-// east in the palest. A stand-in for price, on the card's own claim that the cheapest rooms were further
-// east: no room rates from the time are in the data.
-const metresFromStation = (h: { lon: number; lat: number }) => Math.hypot((h.lon - CPR_STATION[0]) * 72_600, (h.lat - CPR_STATION[1]) * 111_200)
-const graded = (h: GrowthBuilding): GrowthBuilding => {
-  const k = Math.max(0, Math.min(1, (metresFromStation(h) - 400) / 1600))
-  const mix = (a: number, b: number) => Math.round(a + (b - a) * k).toString(16).padStart(2, '0')
-  return { ...h, fill: `#${mix(0x8e, 0xe2)}${mix(0x42, 0xc4)}${mix(0x33, 0xbb)}` }
-}
 // The bust: everything standing by 1913, and the six hotels that still go up after it, in red.
 const bustRise: GrowthBuilding[] = [
   ...districtTo(1912, (b) => underHotel(b) || (b.kind === 'brick' && b.i === bcerIndex)),
@@ -80,7 +71,7 @@ const travellersRise: GrowthBuilding[] = [
   ...landmark('carnegie-1903', 'Carnegie Library'),
   ...landmark('woodwards-1903', "Woodward's"),
   ...terminals,
-  ...hotels.map(graded),
+  ...hotels.map((h) => ({ ...h, fill: RED })),
 ]
 
 // The Canadian Pacific's main line along the waterfront, as Goad's 1912 atlas draws it.
@@ -205,11 +196,11 @@ export const chapterTwo: MapChapter = {
       title: 'Built for travellers',
       text: [
         'Vancouver is the end of the line: passengers come off the Canadian Pacific\'s trains and the steamships from Asia. Hundreds of hotels and rooming houses go up within walking distance of the piers to put them up.',
-        'The cheapest rooms are further east. In the years that follow, it is loggers, miners and seamen, working away and coming back between jobs, who make them home.',
+        'In the years that follow, it is loggers, miners and seamen, working away and coming back between jobs, who make them home.',
       ],
       // framed from the station and pier in the west to the hotels east of Main
       view: { lon: -123.1065, lat: 49.2852, dist: 2300, theta: SOUTH, phi: 0.8 },
-      // the station and the pier named on stems; the terminals dark, the hotels in a red that pales eastward
+      // the station and the pier named on stems; the terminals dark, the hotels red
       sites: ['cpr-station', 'cpr-pier'],
       // the ways in, drawn as the card arrives: the trains along the line, the ships up the inlet
       routes: ['cpr-main', 'train-in', 'steamer-in'],
@@ -227,7 +218,7 @@ export const chapterTwo: MapChapter = {
         names: [],
         streets,
         streetStyle: { width: 0.8, colour: '#8c8c8c', opacity: 0.8 },
-        note: `The dark buildings are the Canadian Pacific's station at the head of Granville Street and the freight sheds on its pier and along the waterfront, as Goad's 1912 atlas draws them; the sheds stand on piles over the water. The red buildings are today's SRO hotels, in a red that pales with distance from the station: a stand-in for price, on the claim that the cheapest rooms were further east, since no room rates from the time are in the data. The hotels stand at their real heights, from LiDAR. The white buildings are the rest of the 1912 atlas at assumed heights, 11 m for brick and 7 m for wood, about three and two storeys; the atlas's storey counts have not been read. ${SHORE_1912} The lines are the streets as surveyed by 1887.`,
+        note: `The dark buildings are the Canadian Pacific's station at the head of Granville Street and the freight sheds on its pier and along the waterfront, as Goad's 1912 atlas draws them; the sheds stand on piles over the water. The red buildings are today's SRO hotels. They are one red: an earlier version paled them eastward as a stand-in for price, but no room rates for the working men's hotels of these years have been found, and the heritage record describes the Balmoral, on East Hastings, as a high-class hotel when it opened in 1912, so the east was not simply the cheap end. The hotels stand at their real heights, from LiDAR. The white buildings are the rest of the 1912 atlas at assumed heights, 11 m for brick and 7 m for wood, about three and two storeys; the atlas's storey counts have not been read. ${SHORE_1912} The lines are the streets as surveyed by 1887.`,
         sourceId: 'tyee-paulsen-2007',
       },
       sourceId: 'tyee-paulsen-2007',

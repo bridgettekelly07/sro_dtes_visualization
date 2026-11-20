@@ -1637,6 +1637,8 @@ export class District3D {
     const list = this.models || [];
     if (!list.length) return;
     const proj = this.proj, u = 1 / this.mPerUnit, edgeInk = [], edgeFaint = [];
+    // base map: a model marked `detail` is drawn with its floors and windows, as the SROs of the main map are
+    const detailItems = [];
     // base map: a model may carry its own fill colour (`fill`, a hex string); the rest are white
     const tris = new Map();
     let tri = [];
@@ -1668,6 +1670,7 @@ export class District3D {
           }
           const ring = pc.ring;
           if (ring.length < 3) return;
+          if (m.detail && !p.follow && !p.z0) detailItems.push({ xz: ring, h: p.h, base: pc.base, narrow: true, shop: true });
           // base map: a footprint marked `piles` that stands over the water is held at the model's floor
           // (minBase), with a post down to the water at each corner
           let mx = 0, mz = 0;
@@ -1749,6 +1752,18 @@ export class District3D {
     if (l) this.gModels.add(l);
     const lf = this.fatLines(new Float32Array(edgeFaint), this.matModelEdgeFaint);
     if (lf) this.gModels.add(lf);
+    if (detailItems.length) {
+      const win = this.fatLines(facadeLines(detailItems, this.mPerUnit), this.matWin);
+      if (win) this.gModels.add(win);
+      const st = storeyLines(detailItems, this.mPerUnit);
+      if (st.length) this.gModels.add(new THREE.LineSegments(this.flatGeo(st), this.matStorey));
+    }
+  }
+  // base map: where a place `h` metres above the ground at [lon, lat] falls on the screen, in CSS pixels
+  screenOf(lon, lat, h = 0) {
+    if (!this.ready || !this.proj) return null;
+    const x = this.proj.x(lon), z = this.proj.y(lat);
+    return this.toScreen(x, this.yAt(x, z) + h / this.mPerUnit, z);
   }
 
   // base map: each site as a ring on the ground with a stem rising from its centre, where its label sits;

@@ -7,7 +7,7 @@
    * The map does not respond to the pointer here, so that scrolling anywhere
    * on the page moves the story and never zooms the map.
    */
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import Map3D from './Map3D.svelte'
   import StopPhotos from './StopPhotos.svelte'
   import ChapterRail from './ChapterRail.svelte'
@@ -18,7 +18,7 @@
   import { PARK } from './parkShade.js'
   import { shoreOutline } from './terrain.js'
   import { layoutAnnotation, type GroundLabel } from './annotate'
-  import type { GrowthBuilding, LandTime, MapChapter, Site } from '../data/stops'
+  import type { GrowthBuilding, LandTime, MapChapter, Pickable, Site } from '../data/stops'
   import { chapters } from '../data/chapters'
   import { sourceById } from '../data/sources'
   import { models as buildingModels, type Part } from '../data/models'
@@ -103,7 +103,7 @@
   const ready = $derived(!!(data && proj && data.surveyed.length && data.foot))
   const colourOf = () => hexOf(css('--m3-bldg'))
 
-  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][], accent?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; bridges: (on: boolean) => void; dots: (list: { lon: number; lat: number; r: number }[]) => void; streetFill: (lines: number[][][], w?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
+  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][], accent?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; bridges: (on: boolean) => void; dots: (list: { lon: number; lat: number; r: number }[]) => void; screenOf: (lon: number, lat: number, h?: number) => { x: number; y: number; on: boolean } | null; streetFill: (lines: number[][][], w?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
   let mapReady = $state(false)
   let fail = $state('')
   let active = $state(0)
@@ -141,6 +141,64 @@
   let first = true
   let drawing = 0 // the route animation in flight, so a newer stop can cancel it
   // what the last card left standing, so the next can sink it as it arrives
+  // A building chosen on the map: the camera goes in to it and a panel says what is recorded about it.
+  let focus = $state<Pickable | null>(null)
+  let overPick = $state(false)
+  let lastSent: { lon: number; lat: number }[] = []
+  let lastFly: { view: object; offsetX: number } | null = null
+  // the same building, kept apart from the reactive `focus` so that drawing a card does not come to depend on it
+  let focusNow: Pickable | null = null
+  const isFocus = (m: { lon: number; lat: number }) => !!focusNow && m.lon === focusNow.lon && m.lat === focusNow.lat
+  /** The list as the map gets it: the chosen building white, with its floors and windows drawn. */
+  const withFocus = (list: { lon: number; lat: number }[]) => (focusNow ? list.map((m) => (isFocus(m) ? { ...m, fill: '#ffffff', detail: true } : m)) : list)
+  /** The pickable building under a point of the window, if any: the one whose outline on screen is smallest. */
+  const pickAt = (x: number, y: number): Pickable | null => {
+    const list = stops[active]?.pickable
+    if (!list || !map) return null
+    let best: Pickable | null = null
+    let size = Infinity
+    for (const p of list) {
+      let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity]
+      for (const part of p.parts)
+        for (const [lon, lat] of part.ring)
+          for (const h of [0, part.h]) {
+            const q = map.screenOf(lon, lat, h)
+            if (!q || !q.on) continue
+            x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y)
+          }
+      if (x < x0 || x > x1 || y < y0 || y > y1) continue
+      const area = (x1 - x0) * (y1 - y0)
+      if (area < size) [best, size] = [p, area]
+    }
+    return best
+  }
+  const offMap = (e: MouseEvent) => !!(e.target as HTMLElement).closest('article, nav, button, a, summary, details')
+  const focusOn = (p: Pickable) => {
+    focus = focusNow = p
+    map?.models(withFocus(lastSent))
+    // stand on the building's street: the nearest street centreline says which side that is
+    const kx = 111_320 * Math.cos((p.lat * Math.PI) / 180)
+    let near = Infinity
+    let dir = [0, 1]
+    for (const line of stops[active]?.context?.streetFill ?? [])
+      for (let i = 1; i < line.length; i++) {
+        const ax = (line[i - 1][0] - p.lon) * kx, ay = (line[i - 1][1] - p.lat) * 111_200
+        const bx = (line[i][0] - p.lon) * kx, by = (line[i][1] - p.lat) * 111_200
+        const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1
+        const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L))
+        const qx = ax + dx * t, qy = ay + dy * t, d = Math.hypot(qx, qy)
+        if (d < near && d > 1) [near, dir] = [d, [qx / d, qy / d]]
+      }
+    const tall = Math.max(...p.parts.map((q) => q.h))
+    // theta turns the camera about the place: east is 0, south a quarter turn on
+    map?.fly({ lon: p.lon, lat: p.lat, dist: 150 + tall * 2.5, theta: Math.atan2(-dir[1], dir[0]), phi: 0.92, offsetX: lastFly?.offsetX ?? 0 }, 1800)
+  }
+  const unfocus = () => {
+    if (!focusNow) return
+    focus = focusNow = null
+    map?.models(lastSent)
+    if (lastFly) map?.fly({ ...lastFly.view, offsetX: lastFly.offsetX }, 1600)
+  }
   let lastShown: { lon: number; lat: number; bearing: number; parts: Part[]; minBase: number; piles?: boolean; fill?: string; faint?: boolean }[] = []
 
   /** The first `share` of a line, by length, ending on an interpolated point. */
@@ -165,6 +223,8 @@
     const stop = stops[active]
     if (!mapReady || !map || !stop) return
     const mapNow = map
+    focusNow = null
+    untrack(() => (focus = null))   // a new card lets go of any building chosen on the last
     // the shoreline of the card's time
     const landNow = lands[stop.land ?? '1880s']
     // a change of shore between cards slides in as the camera flies
@@ -322,6 +382,7 @@
     const textNow = [...base.filter((l) => l.text), ...own, ...names, ...(layout ? layout.labels : [])]
     mapNow.groundText(labelsLater ? textNow : [...textNow, ...featureLabels])
     mapNow.fly({ ...(layout ? layout.view : stop.view), offsetX }, flight)
+    lastFly = { view: layout ? layout.view : stop.view, offsetX }
     first = false
 
     // The buildings standing at this stop, each placed at its site.
@@ -376,18 +437,23 @@
       for (const m of current) if (!prevKeys.has(keyOf(m))) incoming.add(keyOf(m))
       if (!outgoing.length && !incoming.size) transitioning = false
     }
+    // everything goes to the map through here, so a chosen building keeps its look while the card animates
+    const send = (list: Shown[]) => {
+      lastSent = list
+      mapNow.models(withFocus(list))
+    }
     const showModels = (list: Shown[]) => {
       current = list
       lastShown = list
-      if (!transitioning) return mapNow.models([...list, ...faintShown, ...vehicles])
+      if (!transitioning) return send([...list, ...faintShown, ...vehicles])
       if (!settled) {
         // until then, the last card's buildings stay as they were
         const keys = new Set(list.map(keyOf))
-        return mapNow.models([...list, ...faintShown, ...vehicles, ...prevShown.filter((m) => !keys.has(keyOf(m)))])
+        return send([...list, ...faintShown, ...vehicles, ...prevShown.filter((m) => !keys.has(keyOf(m)))])
       }
       const t = Math.max(0, Math.min(1, (performance.now() - transFrom) / TRANS_MS))
       const e = t * t * (3 - 2 * t)
-      mapNow.models([...list.map((m) => (incoming.has(keyOf(m)) ? sunk(m, e) : m)), ...faintShown, ...vehicles, ...outgoing.map((m) => sunk(m, 1 - e))])
+      send([...list.map((m) => (incoming.has(keyOf(m)) ? sunk(m, e) : m)), ...faintShown, ...vehicles, ...outgoing.map((m) => sunk(m, 1 - e))])
     }
     const showVehicles = (list: Shown[]) => {
       vehicles = list
@@ -970,14 +1036,14 @@
       <p class="font-display pointer-events-none absolute right-8 bottom-6 text-7xl font-semibold tracking-tight text-[var(--ink)]/75 tabular-nums">{yearShown}</p>
     {/if}
     <!-- what a card's colours stand for -->
-    {#if stops[active]?.legend?.length}
+    {#if stops[active]?.legend?.length && !focus}
       <ul class="font-display pointer-events-none absolute top-6 right-8 space-y-1.5 bg-[#1f1f1f] px-3 py-2.5 text-xs tracking-wide text-white uppercase">
         {#each stops[active].legend ?? [] as item (item.label)}
           <li class="flex items-center gap-2"><span class="inline-block h-3 w-3 border border-white/60" style:background={item.colour}></span>{item.label}</li>
         {/each}
       </ul>
     {/if}
-    {#if statShown}
+    {#if statShown && !focus}
       <div class="font-display pointer-events-none absolute right-8 bottom-6 text-right text-[var(--ink)]">
         <p class="text-6xl font-semibold tracking-tight tabular-nums opacity-80">{statShown.value}</p>
         <p class="mt-1 max-w-xs text-xs tracking-wide uppercase opacity-70">{statShown.label}</p>
@@ -990,6 +1056,29 @@
     {/if}
   </div>
 
+  <!-- a building chosen on the map: what is recorded about it, and the way back -->
+  {#if focus}
+    <aside class="pointer-events-auto fixed top-1/2 left-4 z-30 max-h-[92dvh] w-full max-w-sm -translate-y-1/2 overflow-y-auto rounded-lg bg-white/95 p-6 shadow-sm md:left-16 lg:left-56">
+      <p class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase">SRO hotel</p>
+      <h2 class="font-display mt-1 text-2xl font-semibold tracking-tight">{focus.name}</h2>
+      {#if focus.photo}
+        <figure class="mt-4">
+          <img src="{import.meta.env.BASE_URL}images/{focus.photo.file}" alt={focus.photo.alt} class="max-h-64 w-full object-cover grayscale" />
+          <figcaption class="mt-1.5 text-[11px] leading-snug text-[var(--ink-3)]">
+            {focus.photo.title}, {focus.photo.date}. <a href={focus.photo.recordUrl} target="_blank" rel="noreferrer" class="underline">{focus.photo.credit}</a>
+          </figcaption>
+        </figure>
+      {/if}
+      <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+        {#each focus.facts as fact (fact.label)}
+          <dt class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase">{fact.label}</dt>
+          <dd class="text-[var(--ink)]">{fact.value}</dd>
+        {/each}
+      </dl>
+      {#if focus.note}<p class="mt-4 text-xs leading-relaxed text-[var(--ink-3)]">{focus.note}</p>{/if}
+      <button type="button" onclick={unfocus} class="font-display mt-5 cursor-pointer bg-[#1f1f1f] px-3 py-1.5 text-xs tracking-wide text-white uppercase">← Back to the map</button>
+    </aside>
+  {/if}
   <ChapterRail
     {chapters}
     current={chapterOf[active]?.chapterId ?? ''}
@@ -1004,13 +1093,23 @@
   />
 
   <!-- The story: one tall section per stop, pulled up over the map -->
-  <div class="relative -mt-[100dvh]">
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+  <div
+    class="relative -mt-[100dvh] {overPick ? 'cursor-pointer' : ''}"
+    onclick={(e) => {
+      if (offMap(e)) return
+      const p = pickAt(e.clientX, e.clientY)
+      if (p) focusOn(p)
+      else unfocus()
+    }}
+    onmousemove={(e) => (overPick = !offMap(e) && !!stops[active]?.pickable && !!pickAt(e.clientX, e.clientY))}
+  >
     {#each stops as stop, i (stop.id)}
       {@const ev = event(stop.eventId)}
       {@const source = stop.sourceId ? sourceById.get(stop.sourceId) : null}
       <section bind:this={sections[i]} data-index={i} class="flex min-h-dvh snap-center snap-always items-center px-4 py-24 md:pr-10 md:pl-16 lg:pl-56">
         <article
-          class="w-full max-w-sm rounded-lg bg-white/92 p-6 shadow-sm backdrop-blur-sm transition-opacity duration-500 {i === active ? 'opacity-100' : 'opacity-40'}"
+          class="w-full max-w-sm rounded-lg bg-white/92 p-6 shadow-sm backdrop-blur-sm transition-opacity duration-500 {focus ? 'pointer-events-none opacity-0' : i === active ? 'opacity-100' : 'opacity-40'}"
         >
           {#if firstOf.includes(i)}
             <p class="font-display mb-4 text-xs font-semibold tracking-wide text-[var(--ink-3)] uppercase">Chapter {numberOf(chapterOf[i].chapterId)} · {chapterOf[i].title}</p>

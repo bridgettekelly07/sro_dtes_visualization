@@ -29,6 +29,7 @@ import {
   streetStyle,
   streets,
 } from './chapterFive'
+import { chapterSixPhotos } from './chapterSixPhotos'
 
 const dated = datedFootprints.filter((b) => b.built <= 2003)
 const { standingBy, backdrop } = lateCity
@@ -90,9 +91,6 @@ export const redevelopment: GrowthBuilding[] = (woodwards2010.parts as unknown a
 }))
 
 const oppenheimer: [number, number] = [-123.0943, 49.2829]
-// The march, as a walk through the blocks: from the Carnegie west along Hastings, north on Carrall, and
-// east along Powell to Oppenheimer Park. A schematic course on today's street corners, not a traced one.
-const marchRoute: [number, number][] = [corner.mainHastings, corner.carrallHastings, [-123.10427, 49.28328], corner.mainPowell, corner.dunlevyPowell]
 
 const models: [string, string][] = [
   ['expo-grounds', 'science-world-1986'],
@@ -113,20 +111,13 @@ export const chapterSix: MapChapter = {
   sites: [
     { id: 'march-carnegie', label: 'Carnegie Community Centre', stem: 20, lon: landmarks.carnegie.lon, lat: landmarks.carnegie.lat, located: true, basis: 'The Carnegie Community Centre at Main and Hastings.' },
     { id: 'march-park', label: 'Oppenheimer Park', stem: 12, lon: oppenheimer[0], lat: oppenheimer[1], located: true, basis: 'Oppenheimer Park, on Powell Street between Dunlevy and Jackson avenues.' },
+    { id: 'march-hall', label: 'Japanese Language Hall', stem: 12, lon: -123.0916, lat: 49.2841, located: true, basis: 'The Vancouver Japanese Language School and Japanese Hall, 487 Alexander Street: placed by its number along the 400 block, near Princess Avenue, not on a surveyed footprint.' },
     { id: 'woodwards-closed', label: "Woodward's, closed 1993", stem: 22, lon: landmarks.woodwards.lon, lat: landmarks.woodwards.lat, located: true, basis: "The Woodward's store on the block north of Hastings between Abbott and Cambie streets; marked on the store as Goad's 1912 atlas draws it." },
     { id: 'woodsquat', label: 'Woodsquat, 2002', stem: 22, lon: landmarks.woodwards.lon, lat: landmarks.woodwards.lat, located: true, basis: "The empty Woodward's building at Hastings and Abbott streets, where the rally was held and the squat began." },
     { id: 'emergency', label: 'Public health emergency, 1997', ring: 420, lon: corner.mainHastings[0] - 0.0012, lat: corner.mainHastings[1] + 0.0004, located: false, basis: 'A ring over the blocks around Main and Hastings, not a boundary: the declaration named no area on the map.' },
     { id: 'insite', label: 'Insite, 139 East Hastings', stem: 20, lon: insiteAt[0], lat: insiteAt[1], located: true, basis: "Placed by its street number along the north side of the 100 block of East Hastings; the building is the dated footprint nearest that point, not confirmed against a plan." },
   ],
   routes: [
-    {
-      id: 'memorial-march',
-      points: marchRoute,
-      drawIn: true,
-      colour: '#8e4233',
-      located: false,
-      basis: "A schematic course for the march through the neighbourhood's blocks, from the Carnegie to Oppenheimer Park. The march's route is not given in the sources the project has read, and it has changed over the years.",
-    },
   ],
   stops: [
     {
@@ -134,17 +125,16 @@ export const chapterSix: MapChapter = {
       kicker: '14 February 1992',
       title: 'The march',
       text: [
-        'After the murder of Cheryl Ann Joe, her family and neighbours gather on 14 February 1992 to remember her.',
-        "The memorial becomes the Women's Memorial March, walked every 14 February since, honouring missing and murdered Indigenous women and girls.",
+        'After the murder of Cheryl Ann Joe, her family and neighbours gather on 14 February 1992 in the parking lot where she was found, to remember her.',
+        "The memorial becomes the Women's Memorial March, walked every 14 February since, honouring missing and murdered Indigenous women and girls. It gathers at the Carnegie, stops through the neighbourhood where women were last seen or found, comes to a healing circle in Oppenheimer Park and ends with a feast at the Japanese Language Hall.",
       ],
       view: { lon: -123.1008, lat: 49.2824, dist: 1700, theta: SOUTH, phi: 0.8 },
-      sites: ['march-carnegie', 'march-park'],
+      sites: ['march-carnegie', 'march-park', 'march-hall'],
       ...base,
-      routes: [...base.routes, 'memorial-march'],
       faint: backdrop(1992),
       growth: { from: 1992, to: 1992, buildings: city(1992, { carnegie: DARK, hotels: null }) },
       context: context(
-        `The dashed red line is a schematic course for the march, from the Carnegie Community Centre to Oppenheimer Park: where the first gathering of 1992 was held and the route walked are not in the sources the project has read, and the course has changed over the years. The Carnegie is dark; the hotels are white on this card.`,
+        `No route is drawn. The march's own notices give where it gathers (the Carnegie Community Centre, at Main and Hastings), the healing circle in Oppenheimer Park and the feast at the Japanese Language Hall, 487 Alexander Street, and say that it stops where women were last seen or found; none of the pages read names the streets it walks, and an earlier version of this card drew an invented line, now removed. The parking lot of the 1992 gathering, off Powell Street, is not located and is not marked. The hall is placed by its street number. The Carnegie is dark; the hotels are white on this card.`,
         'tce-memorial-march',
       ),
       eventId: 'memorial-march',
@@ -170,10 +160,10 @@ export const chapterSix: MapChapter = {
     },
     {
       id: 'health-emergency',
-      kicker: '1997',
+      kicker: '25 September 1997',
       title: 'A public health emergency',
       text: [
-        'HIV spreads fast among people who inject drugs in the neighbourhood. The Vancouver/Richmond Health Board declares a public health emergency.',
+        'HIV spreads fast among people who inject drugs in the neighbourhood: of 1,200 tested in one study, more than a quarter are positive. On 25 September 1997 the Vancouver/Richmond Health Board declares a public health emergency.',
         'The hotels absorb people whom the health and housing systems have dropped, without the staffing or repair to support them.',
       ],
       view: { lon: -123.1000, lat: 49.2814, dist: 1500, theta: SOUTH, phi: 0.78 },
@@ -183,8 +173,8 @@ export const chapterSix: MapChapter = {
       highlight: { from: corner.mainHastings, ms: 6000 },
       growth: { from: 1997, to: 1997, buildings: city(1997) },
       context: context(
-        `The ring is a label over the blocks around Main and Hastings, not a boundary. The source read confirms the declaration and ties it to the infection rate of 1996 and 1997 but does not give the year it was made; 1997 is the year commonly given and is not yet checked against a record. Today's SRO hotels standing by 1997 turn red outward from Main and Hastings: they are where rooms were, not a map of cases.`,
-        'tyee-insite-2006',
+        `The ring is a label over the blocks around Main and Hastings, not a boundary. The date is as the Georgia Straight gives it; a Health Canada release of 14 November 1997 says the board had recently declared a health emergency and gives the study: 1,200 people who inject drugs, 27 per cent of them HIV-positive. Journal articles put new infections at about 18 per cent a year at the peak. Today's SRO hotels standing by 1997 turn red outward from Main and Hastings: they are where rooms were, not a map of cases.`,
+        'straight-emergency-1997',
       ),
       eventId: 'health-emergency-1997',
     },
@@ -223,7 +213,7 @@ export const chapterSix: MapChapter = {
       faint: backdrop(2003),
       growth: { from: 2003, to: 2003, buildings: city(2003, { insite: DARK }) },
       context: context(
-        `The dark building stands for Insite at 139 East Hastings: it is the dated footprint nearest that number's place along the block, not confirmed against a plan. Today's SRO hotels standing by 2003 are red.`,
+        `The dark building stands for Insite at 139 East Hastings: it is the dated footprint nearest that number's place along the block, not confirmed against a plan; a 2025 account puts Insite in the building beside 123 East Hastings, which fits. Onsite, the detox, opened above it in September 2007. Today's SRO hotels standing by 2003 are red.`,
         'phs-insite',
       ),
       eventId: 'insite',
@@ -234,7 +224,7 @@ export const chapterSix: MapChapter = {
       title: 'The Single Room Accommodation By-law',
       text: [
         'The City enacts the Single Room Accommodation By-law. It regulates the conversion and demolition of rooms under 320 square feet in rooming houses and residential hotels in the downtown core.',
-        'From now on an owner needs the City\'s permission to convert or demolish a designated room.',
+        'From now on an owner must apply to council for a permit to convert or demolish a designated room, and council may refuse it or attach conditions, among them a fee for each room lost.',
       ],
       view: { lon: -123.1000, lat: 49.2818, dist: 1900, theta: SOUTH, phi: 0.77 },
       sites: [],
@@ -244,10 +234,13 @@ export const chapterSix: MapChapter = {
       stat: { value: String(hotelsBy(2003).length), label: "of today's SRO buildings on this map were standing in 2003", after: 8000 },
       growth: { from: 2003, to: 2003, buildings: city(2003) },
       context: context(
-        `The red buildings are today's SRO buildings (the 2024 SRO Tenant Survey's list) standing by 2003, turning red outward from Main and Hastings; the figure counts them. They stand in for the buildings the by-law designated: its own schedule of 2003 is not yet read into the project, and buildings designated then and since lost are not drawn. That an owner needs the City's permission to convert or demolish is how the by-law works in outline; its conditions and fees are not set out here.`,
+        `The red buildings are today's SRO buildings (the 2024 SRO Tenant Survey's list) standing by 2003, turning red outward from Main and Hastings; the figure counts them. They stand in for the buildings the by-law designated: its own schedule of 2003 is not yet read into the project, and buildings designated then and since lost are not drawn. The permit and its conditions are as the City's fact sheet on the by-law sets them out; the fee council could attach was $5,000 a room at first and $15,000 from 2007, and far higher since. Accounts of 2006 give about 180 or 198 buildings designated, and later City reports about 9,400 rooms; the by-law's own schedule could not be opened to settle the count.`,
         'cov-report-2020',
       ),
       eventId: 'sra-bylaw',
     },
   ],
 }
+
+// Photographs for each card, kept in chapterSixPhotos.ts.
+for (const stop of chapterSix.stops) stop.photos ??= chapterSixPhotos[stop.id]

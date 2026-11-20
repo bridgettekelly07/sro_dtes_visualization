@@ -19,6 +19,7 @@ import flats1917 from './flats1917.json'
 import { cprLine1912 } from './cpr1912'
 import expo1986 from './expo1986.json'
 import streets1986 from './streets1986.json'
+import { chapterFivePhotos } from './chapterFivePhotos'
 
 export const SOUTH = Math.PI / 2
 export const RED = '#8e4233'
@@ -162,6 +163,9 @@ export const BRIDGES86 = `The Granville (1954), Burrard (1932) and new Cambie (8
 export const GUIDEWAY = `The SkyTrain's elevated guideway is modelled on OpenHistoricalMap's track from just east of Stadium station past Main Street station and along Terminal Avenue to the Grandview cut: one deck 9 m wide for the two tracks, following one of the two tracks so it runs without a break, kept 7 m above the ground, on piers every 30 m. Its real height varies and is not traced. West of Stadium the line is dashed in tunnel and drawn as track where it runs at grade. The trains are four-car trains of Mark I cars as a type, running each way.`
 const OHM = `The fair is drawn as OpenHistoricalMap's mappers reconstructed it from site plans and photographs (CC0): its pavilions and stands, dark, raised as low blocks at 8 m (or 4.5 m a storey where the map gives storeys), its monorail and people mover as solid lines and its gondolas dashed. The project has not checked it pavilion by pavilion.`
 
+// Hotels the reports of 1986 name as putting tenants out for the fair: the Patricia, the Metropole and the Dominion
+const EVICTING = /^(PATRICIA HOTEL|METROPOLE HOTEL|DOMINION HOTEL)$/
+
 export const chapterFive: MapChapter = {
   chapterId: 'naming-the-dtes',
   title: 'Naming the Downtown Eastside',
@@ -174,6 +178,7 @@ export const chapterFive: MapChapter = {
     { id: 'waterfront-station', label: 'Waterfront station', stem: 10, lon: -123.1118, lat: 49.2859, located: true, basis: "The SkyTrain's western terminus in the old Canadian Pacific station at the foot of Seymour Street; marked at today's station." },
     { id: 'main-station', label: 'Main Street station', stem: 10, lon: -123.1007, lat: 49.2731, located: true, basis: "The SkyTrain's station at Main Street and Terminal Avenue, today's Main Street–Science World; marked at today's station." },
     { id: 'expo-grounds', label: 'Expo 86', stem: 14, lon: fairCentre[0], lat: fairCentre[1], located: true, basis: "The middle of the fair's grounds as OpenHistoricalMap's zones draw them." },
+    { id: 'patricia', label: 'Patricia Hotel', stem: 18, lon: -123.09507, lat: 49.28152, located: true, basis: "The Patricia Hotel, 403 East Hastings Street, from the 2024 survey's list." },
     { id: 'guideway', label: 'SkyTrain guideway', lon: -123.1000, lat: 49.2730, located: true, basis: "The elevated stretch of the SkyTrain's first line." },
     { id: 'viaducts', label: 'Georgia viaduct', lon: -123.1035, lat: 49.2774, located: true, basis: "The viaducts of 1972, on their centrelines from the City's street data." },
     { id: 'canada-pavilion', label: 'Canada Pavilion, Burrard Inlet', stem: 10, lon: -123.1117, lat: 49.2888, located: true, basis: "The Canada Pavilion, off the main grounds, on the pier at the foot of Howe and Burrard streets (today's Canada Place)." },
@@ -251,7 +256,7 @@ export const chapterFive: MapChapter = {
         streets,
         streetFill,
         streetStyle,
-        note: `What the by-law asked of each hotel in detail is not in the sources the project has; the City's 2007 report describes it as upgrading hotels under the Fire By-law, beginning in mid-1974 with Downtown Eastside buildings of more than twenty rooms. The red buildings are today's SRO hotels of more than twenty rooms standing by 1974, the ones the enforcement reached first, turning red outward from Main and Hastings; the smaller ones are white. Room counts are today's, from the 2024 SRO Tenant Survey. The dark buildings that then come down stand for the hotels that closed, converted or were demolished: the project has no list of them, so they are 46 of the larger brick buildings of the faint 1912 backdrop in the hotel blocks, picked at random, one for about fifty of the 2,300 units. Their places are illustrative, not the hotels that were lost. The 2,300 is a 1977 City Planning estimate for the downtown peninsula and Strathcona, not counted building by building. That fires drove the residents' pressure is the account of the movement's own advocates; the project has not traced a source for particular fires. ${CITY} ${SHORE}`,
+        note: `What the by-law asked of each hotel in detail is not in the sources the project has; the City's 2007 report describes it as upgrading hotels under the Fire By-law, beginning in mid-1974 with Downtown Eastside buildings of more than twenty rooms. The red buildings are today's SRO hotels of more than twenty rooms standing by 1974, the ones the enforcement reached first, turning red outward from Main and Hastings; the smaller ones are white. Room counts are today's, from the 2024 SRO Tenant Survey. The fire most often named as the spur is the Commercial Hotel's on Cambie Street, on 21 October 1973, in which five people died; that is from a local history page, not yet confirmed in a record, and is not drawn. A 2023 journal article (Masuda and others, Abandoning the SRO) finds in the City Archives that a crackdown under the Lodging House By-law shut fifteen flophouses in February 1972 and that 400 units were lost that year; the buildings are not named there. The dark buildings that then come down stand for the hotels that closed, converted or were demolished: the project has no list of them, so they are 46 of the larger brick buildings of the faint 1912 backdrop in the hotel blocks, picked at random, one for about fifty of the 2,300 units. Their places are illustrative, not the hotels that were lost. The 2,300 is a 1977 City Planning estimate for the downtown peninsula and Strathcona, not counted building by building. That fires drove the residents' pressure is the account of the movement's own advocates; the project has not traced a source for particular fires. ${CITY} ${SHORE}`,
         sourceId: 'cov-survey-2007',
       },
       eventId: 'fire-bylaw-enforcement',
@@ -347,10 +352,11 @@ export const chapterFive: MapChapter = {
       title: 'Evicted for the fair',
       text: [
         'Long-term tenants are evicted so their rooms can be let to visitors. An estimated 700 to 1,000 residents are put out, mostly in February and March, before the fair opens.',
+        'At the Patricia, some fifty or sixty residents are given a week to go. Olaf Solheim, who had lived there for decades, dies within weeks of being moved.',
         'Almost all the hotels go back to housing within a year. The people who lived in them do not all come back.',
       ],
       view: { lon: -123.1010, lat: 49.2795, dist: 2300, theta: SOUTH, phi: 0.77 },
-      sites: [],
+      sites: ['patricia'],
       routes: ['cpr-main-5', ...skytrainIds],
       land: 'today',
       bridges: true,
@@ -358,9 +364,9 @@ export const chapterFive: MapChapter = {
       models: [['expo-grounds', 'science-world-1986'], ['expo-grounds', 'bc-place-1986'], ['viaducts', 'viaducts-1972'], ['guideway', 'skytrain-1985']],
       arrivals: trains(1500),
       faint: backdrop(1986),
-      growth: { from: 1986, to: 1986, buildings: [...city(1986), ...pavilions] },
+      growth: { from: 1986, to: 1986, buildings: [...city(1986, undefined, (h) => (EVICTING.test(h.name) ? DARK : RED)), ...pavilions] },
       // the residents leave the hotels, walking out away from the fair: one figure for about five people
-      scatter: { from: hotelsBy(1986).map((h) => ({ lon: h.lon, lat: h.lat, weight: (h as { rooms?: number }).rooms ?? 20 })), count: 170, away: fairCentre, reach: [500, 1300], ms: 9000, delay: 1800 },
+      scatter: { from: hotelsBy(1986).map((h) => ({ lon: h.lon, lat: h.lat, weight: ((h as { rooms?: number }).rooms ?? 20) * (EVICTING.test(h.name) ? 4 : 1) })), count: 170, away: fairCentre, reach: [500, 1300], ms: 9000, delay: 1800 },
       stat: { value: '700–1,000', label: 'residents evicted, mostly in February and March 1986', after: 2500 },
       context: {
         lines: rail,
@@ -368,10 +374,13 @@ export const chapterFive: MapChapter = {
         streets,
         streetFill,
         streetStyle,
-        note: `Each dark figure walking out, drawn far larger than life, stands for about five of the 700 to 1,000 residents evicted, Olds's estimate (1989) as the City's 2007 report gives it. They leave today's SRO hotels in proportion to the hotels' rooms and walk away from the fair; which hotels evicted their tenants, and where the tenants went, are not recorded here, and the City's report says the number of rooms converted could not be established. ${OHM} ${BRIDGES86} Today's SRO hotels standing by 1986 are red. ${CITY} ${SHORE}`,
+        note: `Each dark figure walking out, drawn far larger than life, stands for about five of the 700 to 1,000 residents evicted, Olds's estimate (1989) as the City's 2007 report gives it. The three dark hotels are those the reports of the time name as putting tenants out: the Patricia, where the Pacific Tribune of 5 March 1986 counts 60 residents forced out on a week's notice and the Globe and Mail about 50, and the Metropole and the Dominion, named in the Tribune. The Regal Place on West Hastings, where about 50 had until 19 March, is not in today's list and is not drawn. The residents' association counted about 30 hotels renovating and a tenants' group listed more than 40 buildings; those are not named in what has been read, so the other figures leave today's SRO hotels in proportion to their rooms, with more from the three named. Where the tenants went is not recorded here. Olaf Solheim's death is as Canada's History tells it; accounts differ on how much notice he had. The estimates differ too: up to 1,000 by the residents' association's survey, about 600 by May by Jim Green's count, 500 to 600 in one later account; the City's report says the number of rooms converted could not be established. ${OHM} ${BRIDGES86} Today's SRO hotels standing by 1986 are red. ${CITY} ${SHORE}`,
         sourceId: 'olds-expo',
       },
       eventId: 'expo-evictions',
     },
   ],
 }
+
+// Photographs for each card, kept in chapterFivePhotos.ts.
+for (const stop of chapterFive.stops) stop.photos ??= chapterFivePhotos[stop.id]

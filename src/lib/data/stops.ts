@@ -142,6 +142,11 @@ export interface Stop {
    */
   /** People walking together along one of the chapter's routes, as the see-through dots: `count` of them in a column `length` metres long, taking `ms` to walk it. */
   procession?: { route: string; count: number; length?: number; ms?: number; delay?: number }
+  /**
+   * Buildings on this card that can be chosen on the map: choosing one flies in to it from its street,
+   * draws it with its floors and windows, and shows what is recorded about it.
+   */
+  pickable?: Pickable[]
   /** A key to the card's building colours, shown in a corner of the map. */
   legend?: { colour: string; label: string }[]
   /** People gathered in a place, as the see-through dots, shown `after` ms once the camera has settled. */
@@ -680,7 +685,7 @@ export const chapterOne: MapChapter = {
         streets: streets1887.edges,
         // the charcoal spreads from where the fire began
         burnFrom: [-123.10912, 49.28352],
-        note: `The charcoal covers the townsite blocks from Cambie to Carrall and the shore to Hastings, which the August 1885 fire insurance map shows built on. No source records the fire's own edge, and the city had grown since that map was made, so the burned area was larger than shown. The buildings are left as footprints. The town that rises is traced from two sheets of the 1889 fire insurance plan, three years after the fire, between Cambie and Carrall, the old townsite; the rest of the rebuilt city is not drawn. The Byrnes Block is drawn as that plan shows it, before its later additions; the plan does not name it, and that it is on Deighton House's site rests on secondary accounts. The faint double lines are the streets of the surveyed city on the 1887 Canadian Pacific townsite map, drawn on today's street lines; many were still only surveyed, not built. Later dates for nearby hotels: Dominion 1900-01, Rainier 1907, Europe 1908-09, Hildon (Manitoba) and Traveller's 1909, Metropole 1910, from Canada's Historic Places and the Vancouver Heritage Site Finder.`,
+        note: `The charcoal covers the townsite blocks from Cambie to Carrall and the shore to Hastings, which the August 1885 fire insurance map shows built on. No source records the fire's own edge, and the city had grown since that map was made, so the burned area was larger than shown. The buildings are left as footprints. The town that rises is traced from two sheets of the 1889 fire insurance plan, three years after the fire, between Cambie and Carrall, the old townsite; the rest of the rebuilt city is not drawn. The Byrnes Block is drawn as that plan shows it, before its later additions; the plan does not name it, and that it stands on part of Deighton House's lot is the account of the Gastown business association's history page and of a magazine feature; Canada's Historic Places, in its statement for the block, does not mention Deighton, so the claim is not confirmed by a heritage record. The faint double lines are the streets of the surveyed city on the 1887 Canadian Pacific townsite map, drawn on today's street lines; many were still only surveyed, not built. Later dates for nearby hotels: Dominion 1900-01, Rainier 1907, Europe 1908-09, Hildon (Manitoba) and Traveller's 1909, Metropole 1910, from Canada's Historic Places and the Vancouver Heritage Site Finder.`,
         sourceId: 'dakin-1889-gastown',
       },
       models: [['mill', 'hastings-mill-1889']],
@@ -720,4 +725,16 @@ export const chapterOne: MapChapter = {
       eventId: 'cpr-arrival',
     },
   ],
+}
+
+/** A building that can be chosen on a card, with the facts shown beside it. */
+export interface Pickable {
+  name: string
+  lon: number
+  lat: number
+  parts: { ring: [number, number][]; h: number }[]
+  facts: { label: string; value: string }[]
+  note?: string
+  /** A photograph of the building from the street, where one is found. */
+  photo?: Photo
 }

@@ -49,7 +49,7 @@ const neighbourhoodsRise: GrowthBuilding[] = [
 
 const SHORE = `The shoreline is that of about 1900 until 1917, then the one with the False Creek flats filled, as in chapter 2.`
 const ATLAS = `The buildings are those of Goad's 1912 atlas, the nearest record of the streets through these decades, at assumed heights of 11 m brick and 7 m wood; today's SRO hotels stand at their LiDAR heights.`
-const OUTLINES = `The neighbourhoods are outlined by the streets the accounts give for them, on today's street lines: Chinatown from Carrall to Gore between Pender and Georgia, Paueru Gai from Main to Jackson between Alexander and Cordova, Hogan's Alley from Main to Jackson between Union and Prior. Each shaded into the streets around it; the outlines are a convenience for the map, not surveyed limits.`
+const OUTLINES = `The neighbourhoods are outlined by the streets the accounts give for them, on today's street lines: Chinatown from Carrall to Main between Hastings and Keefer, its extent by the end of the 1900s as Simon Fraser University's Chinese Canadian history site gives it (from Canton Alley, just west of Carrall), with Pender as its spine; Paueru Gai from Main to Heatley between Railway and Cordova, as Canada's Historic Places gives the neighbourhood before 1942, its centre along Powell from Main to Jackson; Hogan's Alley from Main to Jackson between Union and Prior, the lane itself, with the Black community's churches and businesses on the streets around it. Each shaded into the streets around it; the outlines are a convenience for the map, not surveyed limits.`
 
 const middle = (ring: [number, number][]): [number, number] => [ring.slice(0, -1).reduce((a, p) => a + p[0], 0) / (ring.length - 1), ring.slice(0, -1).reduce((a, p) => a + p[1], 0) / (ring.length - 1)]
 
@@ -200,7 +200,7 @@ export const chapterThree: MapChapter = {
         names: [],
         streets,
         streetStyle: { width: 0.8, colour: '#8c8c8c', opacity: 0.8 },
-        note: `The red buildings are today's SRO hotels standing by 1923, in Chinatown and around it: the rooms where many of the men left alone by the act lived. Which hotels housed them is not recorded here. By 1923 Chinatown had grown east along Pender past the outline drawn here, and the atlas is eleven years old by then: the outline stands for the neighbourhood, not its exact extent. ${OUTLINES} ${ATLAS} ${SHORE}`,
+        note: `The red buildings are today's SRO hotels standing by 1923, in Chinatown and around it: the rooms where many of the men left alone by the act lived. Which hotels housed them is not recorded here. By 1923 Chinatown had grown east along Pender toward Gore, past the outline drawn here, which is its extent at the end of the 1900s, and the atlas is eleven years old by then: the outline stands for the neighbourhood, not its exact extent. ${OUTLINES} ${ATLAS} ${SHORE}`,
         sourceId: 'tce-chinese-immigration-act',
       },
       eventId: 'exclusion-act',
@@ -256,7 +256,7 @@ export const chapterThree: MapChapter = {
         names: [],
         streets,
         streetStyle: { width: 0.8, colour: '#8c8c8c', opacity: 0.8 },
-        note: `The buildings inside the outline are drawn faint: standing, but emptied of the people who had lived and worked in them. They are the 1912 atlas's buildings and today's SRO hotels inside Paueru Gai's outline; the neighbourhood of 1942 reached beyond it. ${OUTLINES} ${ATLAS} ${SHORE}`,
+        note: `The buildings inside the outline are drawn faint: standing, but emptied of the people who had lived and worked in them. They are the 1912 atlas's buildings and today's SRO hotels inside Paueru Gai's outline; the outline is the neighbourhood as Canada's Historic Places bounds it. ${OUTLINES} ${ATLAS} ${SHORE}`,
         sourceId: 'tce-internment',
       },
       eventId: 'uprooting-1942',

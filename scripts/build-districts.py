@@ -4,10 +4,13 @@ The three neighbourhoods of chapter 3 as outlines on the street grid, and the co
 Each outline is the block of streets the accounts give for the neighbourhood, drawn on today's street
 centrelines (public/data/district/dtes-streets.json), which keep the 1880s survey's lines here:
 
-  Chinatown     Carrall Street to Gore Avenue, East Pender Street to East Georgia Street. Chinatown in
-                1907 was along Dupont (Pender) and Carrall, growing east and south in the decades after.
-  Paueru Gai    Main Street to Jackson Avenue, Alexander Street to East Cordova Street, along Powell
-                Street with the Powell Street Grounds (Oppenheimer Park) at its heart.
+  Chinatown     Carrall Street to Main Street, East Hastings Street to Keefer Street: about four blocks by
+                the end of the 1900s (1900 to 1909), as Simon Fraser University's Chinese Canadian history site gives it
+                (Canton Alley, just west of Carrall, to Westminster Avenue, now Main; Hastings to Keefer).
+                Pender (Dupont) was its spine, not its edge. It grew east toward Gore in the decades after.
+  Paueru Gai    Main Street to Heatley Avenue, Railway Street to East Cordova Street, as Canada's Historic
+                Places gives the Japanese Canadian neighbourhood before 1942; its commercial and social
+                centre ran along Powell Street from Main to Jackson.
   Hogan's Alley Main Street to Jackson Avenue, Union Street to Prior Street: the lane between those two
                 streets. Accounts give Gore or Jackson as its east end.
 
@@ -74,8 +77,8 @@ def main(out):
         # inland edge of the Expo 86 grounds as near as the street data gives it
         'expoEdge': street_line('PACIFIC BOULEVARD', 'EXPO BOULEVARD'),
         'source': "Outlines on today's street centrelines (City of Vancouver Open Data), by the streets the accounts give for each neighbourhood. Made by scripts/build-districts.py.",
-        'chinatown': ring('CARRALL ST', 'GORE AV', 'E PENDER ST', 'E GEORGIA ST'),
-        'paueruGai': ring('MAIN ST', 'JACKSON AV', 'ALEXANDER ST', 'E CORDOVA ST'),
+        'chinatown': ring('CARRALL ST', 'MAIN ST', 'E HASTINGS ST', 'KEEFER ST'),
+        'paueruGai': ring('MAIN ST', 'HEATLEY AV', 'RAILWAY ST', 'E CORDOVA ST'),
         'hogansAlley': ring('MAIN ST', 'JACKSON AV', 'UNION ST', 'PRIOR ST'),
         # chapter 4: the blocks cleared for public housing in the 1960s, by the streets the accounts give,
         # and the western half of Hogan's Alley, levelled for the viaducts
