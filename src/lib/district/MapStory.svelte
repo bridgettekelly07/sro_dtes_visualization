@@ -190,7 +190,8 @@
     // what is left: the space between the panel's right edge and the window's.
     const width = window.innerWidth
     // the card's right edge: its left padding (wider from md up, to clear the chapter rail), its width, a gap
-    const panelRight = Math.min(width, (width >= 768 ? 64 : 16) + 384 + 16)
+    // the cards stand clear of the chapter rail, and of its labels on a wide window
+    const panelRight = Math.min(width, (width >= 1024 ? 224 : width >= 768 ? 64 : 16) + 384 + 16)
     const offsetX = width >= 640 ? (panelRight + width) / 2 / width - 0.5 : 0
     const flight = first ? 0 : 2200
     // A stop with an annotation is framed by it; its rings, leaders and names go on the ground.
@@ -995,6 +996,11 @@
     cards={(chapterOf[active]?.stops ?? []).map((s) => ({ title: s.title, kicker: s.kicker }))}
     active={active - stops.indexOf(chapterOf[active]?.stops[0])}
     onGo={(i) => sections[stops.indexOf(chapterOf[active]?.stops[0]) + i]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+    onChapter={(id) => {
+      // a chapter's dot goes straight to its first card, without scrolling through the cards between
+      const first = story.find((c) => c.chapterId === id)?.stops[0]
+      if (first) sections[stops.indexOf(first)]?.scrollIntoView({ behavior: 'instant', block: 'center' })
+    }}
   />
 
   <!-- The story: one tall section per stop, pulled up over the map -->
@@ -1002,7 +1008,7 @@
     {#each stops as stop, i (stop.id)}
       {@const ev = event(stop.eventId)}
       {@const source = stop.sourceId ? sourceById.get(stop.sourceId) : null}
-      <section bind:this={sections[i]} data-index={i} class="flex min-h-dvh snap-center snap-always items-center px-4 py-24 md:pr-10 md:pl-16">
+      <section bind:this={sections[i]} data-index={i} class="flex min-h-dvh snap-center snap-always items-center px-4 py-24 md:pr-10 md:pl-16 lg:pl-56">
         <article
           class="w-full max-w-sm rounded-lg bg-white/92 p-6 shadow-sm backdrop-blur-sm transition-opacity duration-500 {i === active ? 'opacity-100' : 'opacity-40'}"
         >
