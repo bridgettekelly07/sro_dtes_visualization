@@ -20,6 +20,9 @@ picked by hand at each address; heights are the City's 2009 LiDAR unless noted.
     the False Creek flats, at its 2009 LiDAR height, which is the mean over the roof and lower than the
     central hall.
 
+  Chapter 7's hotels (Balmoral, Regent, Winters, Orange Hall, Molson's Bank): the footprint nearest each
+    address's place along its block, at its LiDAR height. Picked by address, not confirmed against a plan.
+
 Usage: python3 scripts/build-landmarks.py src/lib/data/landmarks.json
 """
 import json
@@ -34,6 +37,12 @@ PICK = {
     'science-world': {'name': 'Expo Centre (Science World), 1986', 'rings': [4760]},
     'canada-place': {'name': 'Canada Place, the Canada Pavilion, 1986', 'rings': [861]},
     'bc-place': {'name': 'BC Place stadium, 1983', 'rings': [568]},
+    # chapter 7: hotels not in the 2024 survey's list, or listed there under another name, picked by address
+    'balmoral': {'name': 'Balmoral Hotel, 159 East Hastings', 'rings': [4400]},
+    'regent': {'name': 'Regent Hotel, 160 East Hastings', 'rings': [3822]},
+    'winters': {'name': 'Winters Hotel, 203 Abbott Street', 'rings': [4081]},
+    'orange-hall': {'name': 'Orange Hall, 329-341 Gore Avenue', 'rings': [2117]},
+    'molsons-bank': {'name': "Molson's Bank Building, 166 East Hastings", 'rings': [1118]},
 }
 
 d = json.load(open('public/data/district/footprints.json'))

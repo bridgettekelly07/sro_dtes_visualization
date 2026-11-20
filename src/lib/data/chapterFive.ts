@@ -2,8 +2,8 @@
  * Chapter 5 told on the map: naming the Downtown Eastside, 1973 to 1986.
  *
  * The city is drawn as in chapter 4: today's footprints at their LiDAR heights where the City's property
- * records date the lot's building to the card's year or before (src/lib/data/builtBy1986.json, made by
- * scripts/build-survivors.py with 1986 as its last year), and behind them, faintly, Goad's 1912 atlas on
+ * records date the lot's building to the card's year or before (src/lib/data/builtBy2025.json, made by
+ * scripts/build-survivors.py over the whole map, each footprint with its lot's year), and behind them, faintly, Goad's 1912 atlas on
  * the lots where no survivor stands.
  */
 import { type GrowthBuilding, type MapChapter } from './stops'
@@ -12,7 +12,7 @@ import { models as buildingModels, guidewayLine } from './models'
 import streets1887 from './streets1887.json'
 import sroByYear from './sroByYear.json'
 import sroGround from './sroGround.json'
-import builtBy1986 from './builtBy1986.json'
+import builtBy2025 from './builtBy2025.json'
 import districts from './districts1907.json'
 import landmarks from './landmarks.json'
 import flats1917 from './flats1917.json'
@@ -82,7 +82,10 @@ export function cityFrom(dated: { ring: [number, number][]; h: number; built: nu
   const city = (year: number, carnegie?: string, hotelFill?: (h: (typeof hotels)[number]) => string | undefined): GrowthBuilding[] => [...standingBy(year), ...anchors(carnegie), ...hotelsBy(year, hotelFill)]
   return { standingBy, backdrop, city }
 }
-const { standingBy, backdrop, city } = cityFrom(builtBy1986.buildings as { ring: [number, number][]; h: number; built: number }[])
+/** Today's dated footprints over the whole map: each chapter asks it for the city of its cards' years. */
+export const datedFootprints = builtBy2025.buildings as { ring: [number, number][]; h: number; built: number }[]
+export const lateCity = cityFrom(datedFootprints)
+const { standingBy, backdrop, city } = lateCity
 void standingBy
 
 // Stand-ins for the hotels the by-law closed or that came down: the project has no list of them, so these

@@ -968,6 +968,14 @@
     {#if yearShown !== null}
       <p class="font-display pointer-events-none absolute right-8 bottom-6 text-7xl font-semibold tracking-tight text-[var(--ink)]/75 tabular-nums">{yearShown}</p>
     {/if}
+    <!-- what a card's colours stand for -->
+    {#if stops[active]?.legend?.length}
+      <ul class="font-display pointer-events-none absolute top-6 right-8 space-y-1.5 bg-[#1f1f1f] px-3 py-2.5 text-xs tracking-wide text-white uppercase">
+        {#each stops[active].legend ?? [] as item (item.label)}
+          <li class="flex items-center gap-2"><span class="inline-block h-3 w-3 border border-white/60" style:background={item.colour}></span>{item.label}</li>
+        {/each}
+      </ul>
+    {/if}
     {#if statShown}
       <div class="font-display pointer-events-none absolute right-8 bottom-6 text-right text-[var(--ink)]">
         <p class="text-6xl font-semibold tracking-tight tabular-nums opacity-80">{statShown.value}</p>

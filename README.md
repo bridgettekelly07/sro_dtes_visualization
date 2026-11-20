@@ -2,7 +2,7 @@
 
 **Live app: https://bridgettekelly07.github.io/sro_dtes_visualization/**
 
-The site is rebuilt and published by GitHub Actions on every push to `chapter-6`, `chapter-5` or `main`.
+The site is rebuilt and published by GitHub Actions on every push to `chapter-8`, `chapter-6`, `chapter-5` or `main`.
 
 Svelte 5 + TypeScript + Tailwind CSS, built with Vite.
 

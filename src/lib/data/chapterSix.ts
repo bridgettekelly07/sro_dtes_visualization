@@ -2,13 +2,11 @@
  * Chapter 6 told on the map: compounding crises, 1987 to 2003.
  *
  * The city is drawn as in chapter 5, from today's footprints dated by the City's property records to the
- * card's year or before (src/lib/data/builtBy2003.json, made by scripts/build-survivors.py with 2003 as its
- * last year, over the whole map extent), with the 1912 atlas faintly behind them where no survivor stands.
+ * card's year or before (src/lib/data/builtBy2025.json, shared with chapter 5), with the 1912 atlas faintly behind them where no survivor stands.
  * The shore is today's, the bridges, viaducts and SkyTrain guideway are modelled, and the fair is gone:
  * of its buildings only the Expo Centre (Science World), BC Place and Canada Place stay.
  */
 import { type GrowthBuilding, type MapChapter } from './stops'
-import builtBy2003 from './builtBy2003.json'
 import landmarks from './landmarks.json'
 import woodwards2010 from './woodwards2010.json'
 import {
@@ -19,7 +17,8 @@ import {
   RED,
   SHORE,
   SOUTH,
-  cityFrom,
+  datedFootprints,
+  lateCity,
   corner,
   edges,
   hotelsBy,
@@ -31,8 +30,8 @@ import {
   streets,
 } from './chapterFive'
 
-const dated = builtBy2003.buildings as { ring: [number, number][]; h: number; built: number }[]
-const { standingBy, backdrop } = cityFrom(dated)
+const dated = datedFootprints.filter((b) => b.built <= 2003)
+const { standingBy, backdrop } = lateCity
 
 // 139 East Hastings, where Insite opened: placed by its number along the 100 block's north side, between
 // Columbia (101) and Main; the building picked is the dated footprint nearest that point.
@@ -82,15 +81,13 @@ const tentCity: [number, number][] = (() => {
 })()
 
 // The redevelopment that opened in 2010: each roof part of the City's 2009 footprints at its LiDAR height.
-const redevelopment: GrowthBuilding[] = (woodwards2010.parts as unknown as { ring: [number, number][]; h: number }[]).map((p) => ({
+export const redevelopment: GrowthBuilding[] = (woodwards2010.parts as unknown as { ring: [number, number][]; h: number }[]).map((p) => ({
   name: "Woodward's redevelopment",
   built: 2010,
   lon: p.ring.reduce((a, q) => a + q[0], 0) / p.ring.length,
   lat: p.ring.reduce((a, q) => a + q[1], 0) / p.ring.length,
   parts: [{ kind: 'prism', x: 0, y: 0, ring: p.ring, h: p.h }],
 }))
-/** A year's city without the old store, for the card where it comes down. */
-const cityWithoutStore = (year: number): GrowthBuilding[] => [...standingBy(year), ...landmark('carnegie-1903'), ...landmark('bcer-1912'), ...hotelsBy(year)]
 
 const oppenheimer: [number, number] = [-123.0943, 49.2829]
 // The march, as a walk through the blocks: from the Carnegie west along Hastings, north on Carrall, and
@@ -118,7 +115,6 @@ export const chapterSix: MapChapter = {
     { id: 'march-park', label: 'Oppenheimer Park', stem: 12, lon: oppenheimer[0], lat: oppenheimer[1], located: true, basis: 'Oppenheimer Park, on Powell Street between Dunlevy and Jackson avenues.' },
     { id: 'woodwards-closed', label: "Woodward's, closed 1993", stem: 22, lon: landmarks.woodwards.lon, lat: landmarks.woodwards.lat, located: true, basis: "The Woodward's store on the block north of Hastings between Abbott and Cambie streets; marked on the store as Goad's 1912 atlas draws it." },
     { id: 'woodsquat', label: 'Woodsquat, 2002', stem: 22, lon: landmarks.woodwards.lon, lat: landmarks.woodwards.lat, located: true, basis: "The empty Woodward's building at Hastings and Abbott streets, where the rally was held and the squat began." },
-    { id: 'woodwards-rebuilt', label: "Woodward's, rebuilt 2010", stem: 30, lon: -123.10816, lat: 49.28293, located: true, basis: "The taller tower of the redevelopment, at Abbott and Cordova streets, from the City's 2009 footprints." },
     { id: 'emergency', label: 'Public health emergency, 1997', ring: 420, lon: corner.mainHastings[0] - 0.0012, lat: corner.mainHastings[1] + 0.0004, located: false, basis: 'A ring over the blocks around Main and Hastings, not a boundary: the declaration named no area on the map.' },
     { id: 'insite', label: 'Insite, 139 East Hastings', stem: 20, lon: insiteAt[0], lat: insiteAt[1], located: true, basis: "Placed by its street number along the north side of the 100 block of East Hastings; the building is the dated footprint nearest that point, not confirmed against a plan." },
   ],
@@ -199,7 +195,7 @@ export const chapterSix: MapChapter = {
       text: [
         "Woodward's has stood empty for nine years. On 14 September 2002, after a rally at Abbott and Hastings, housing activists occupy the building and demand that it become social housing: \"homes, not jails\".",
         'Six days in, police in riot gear arrest 54 squatters. The squatters come back, and a tent city grows on the sidewalk outside. It lasts until 12 December, when its residents accept rooms in hotels.',
-        'The City buys the building in 2003. It is demolished in 2006 and reopens in 2010 as a mixed development, about a fifth of it social housing.',
+        'The City buys the building in 2003.',
       ],
       view: { lon: -123.1082, lat: 49.2823, dist: 600, theta: SOUTH, phi: 0.38 },
       sites: ['woodsquat'],
@@ -252,28 +248,6 @@ export const chapterSix: MapChapter = {
         'cov-report-2020',
       ),
       eventId: 'sra-bylaw',
-    },
-    {
-      id: 'woodwards-rebuilt',
-      kicker: '2006 to 2010',
-      title: "Woodward's rebuilt",
-      text: [
-        'Eighteen months after buying the building, the City picks a developer for the block. The store is demolished in 2006, and in 2010 the block reopens as a mix: market condominiums, shops, a university arts school and social housing, with the old "W" kept above it.',
-        'The squatters had demanded that all of it be social housing. About a fifth of it is.',
-      ],
-      view: { lon: -123.1082, lat: 49.2824, dist: 760, theta: SOUTH, phi: 0.72 },
-      sites: ['woodwards-rebuilt'],
-      ...base,
-      faint: backdrop(2003),
-      growth: { from: 2010, to: 2010, buildings: cityWithoutStore(2003) },
-      // the store stands dark, comes down, and the redevelopment rises in its place
-      clear: { old: landmark('woodwards-1903'), then: redevelopment, fill: DARK, at: 3000, ms: 2600 },
-      stat: { value: '≈ 20%', label: "of the block is social housing; the squat demanded 100%", after: 9500 },
-      context: context(
-        `The dark store that comes down is Woodward's as Goad's 1912 atlas draws it, at an assumed 20 m. What rises is the redevelopment from the roof parts of the City's 2009 footprints at their LiDAR heights, surveyed a year before it opened: the two towers, about 120 m and 96 m, and the lower buildings along Hastings. The oldest corner of the store was kept and built into it; which part that is is not marked in the data, and the "W" on its tower is not modelled. The dates, the developer's selection eighteen months after the City bought the building in 2003, and the share of social housing are as CBC News gave them in 2022. This card runs past the chapter's years, to finish the story of the block; the buildings around it are those standing by 2003.`,
-        'cbc-woodsquat-2022',
-      ),
-      eventId: 'olympics-woodwards',
     },
   ],
 }

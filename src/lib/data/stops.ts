@@ -142,6 +142,8 @@ export interface Stop {
    */
   /** People walking together along one of the chapter's routes, as the see-through dots: `count` of them in a column `length` metres long, taking `ms` to walk it. */
   procession?: { route: string; count: number; length?: number; ms?: number; delay?: number }
+  /** A key to the card's building colours, shown in a corner of the map. */
+  legend?: { colour: string; label: string }[]
   /** People gathered in a place, as the see-through dots, shown `after` ms once the camera has settled. */
   crowd?: { points: [number, number][]; r?: number; after?: number }
   scatter?: { from: { lon: number; lat: number; weight: number }[]; count: number; away: [number, number]; reach: [number, number]; ms?: number; delay?: number; fill?: string }
