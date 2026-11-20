@@ -18,7 +18,8 @@
   import { PARK } from './parkShade.js'
   import { shoreOutline } from './terrain.js'
   import { layoutAnnotation, type GroundLabel } from './annotate'
-  import type { GrowthBuilding, LandTime, MapChapter, Pickable, Site } from '../data/stops'
+  import type { GrowthBuilding, LandTime, MapChapter, Pickable, SideStory, Site, StoryScene } from '../data/stops'
+  import { frontBearing } from './hotelFront.js'
   import { chapters } from '../data/chapters'
   import { sourceById } from '../data/sources'
   import { models as buildingModels, type Part } from '../data/models'
@@ -103,7 +104,7 @@
   const ready = $derived(!!(data && proj && data.surveyed.length && data.foot))
   const colourOf = () => hexOf(css('--m3-bldg'))
 
-  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][], accent?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; bridges: (on: boolean) => void; dots: (list: { lon: number; lat: number; r: number }[]) => void; screenOf: (lon: number, lat: number, h?: number) => { x: number; y: number; on: boolean } | null; streetFill: (lines: number[][][], w?: number) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
+  let map = $state<{ fly: (view: object, ms?: number) => void; marks: (sites: object[], paths: number[][][], lines?: number[][][], accent?: number[][][]) => void; land: (mask: unknown, ms?: number) => void; bridges: (on: boolean) => void; dots: (list: { lon: number; lat: number; r: number }[]) => void; screenOf: (lon: number, lat: number, h?: number) => { x: number; y: number; on: boolean } | null; streetFill: (lines: number[][][], w?: number, style?: object) => void; edges: (e?: { width?: number; colour?: string }) => void; models: (list: object[]) => void; dotted: (lines: number[][][]) => void; groundText: (labels: object[]) => void; fine: (groups: object[]) => void; burn: (area: object | null) => void; burnReach: (m: number) => void; burnOpacity: (o: number) => void }>()
   let mapReady = $state(false)
   let fail = $state('')
   let active = $state(0)
@@ -144,17 +145,106 @@
   // A building chosen on the map: the camera goes in to it and a panel says what is recorded about it.
   let focus = $state<Pickable | null>(null)
   let overPick = $state(false)
+  // a building's own history being followed from a card, and the step it is at
+  let side = $state<{ story: SideStory; year: number } | null>(null)
+  // the same, kept apart from the reactive `side` for the map's own use
+  let sideNow: { story: SideStory; year: number } | null = null
+  let lastMarks: [object[], number[][][], number[][][]?, number[][][]?] | null = null
+  let sceneStep = -1
+  let sceneWide = false
+  let dotsRun = 0
+  /** The scene of the step the year has reached: the name over the door, places named, a path, people leaving. */
+  const sceneFor = (s: { story: SideStory; year: number }, again = false) => {
+    const k = stepAt(s.story, s.year)
+    if (k === sceneStep && !again) return
+    sceneStep = k
+    const p = s.story.pick
+    const scene: StoryScene = s.story.steps[k].scene ?? {}
+    // the name stays until a later step changes it
+    const name = s.story.steps.slice(0, k + 1).findLast((q) => q.scene?.name)?.scene?.name ?? p.name
+    const tall = Math.max(...p.parts.map((q) => q.h))
+    const site = (label: string, lon: number, lat: number, stem: number) => ({ id: label, label, lon, lat, stem, rise: 5, located: true, basis: '' })
+    // a step that reaches beyond the building (other places, a path, people leaving) is seen from above, wide
+    // enough to take them in; the others from the street
+    const reach: [number, number][] = [...(scene.places ?? []).map((q): [number, number] => [q.lon, q.lat]), ...(scene.path ?? [])]
+    const wide = reach.length > 0 || !!scene.leaving
+    if (wide) {
+      const kx0 = 111_320 * Math.cos((p.lat * Math.PI) / 180)
+      const all: [number, number][] = [[p.lon, p.lat], ...reach]
+      const lon = (Math.min(...all.map((q) => q[0])) + Math.max(...all.map((q) => q[0]))) / 2
+      const lat = (Math.min(...all.map((q) => q[1])) + Math.max(...all.map((q) => q[1]))) / 2
+      const span = Math.max(...all.map((q) => Math.hypot((q[0] - lon) * kx0, (q[1] - lat) * 111_200)))
+      map?.fly({ lon, lat, dist: Math.max(260, span * 3.4 + 160), theta: Math.PI / 2, phi: 0.95, offsetX: lastFly?.offsetX ?? 0 }, 1800)
+    } else if (sceneWide) focusOn(p, sideFrom, s.story.stage?.(s.year).subject)
+    sceneWide = wide
+    map?.marks([site(name, p.lon, p.lat, tall + 1.5), ...(scene.places ?? []).map((q) => site(q.label, q.lon, q.lat, q.stem ?? 14))], [], [], scene.path ? [scene.path] : [])
+    // figures walking away from the building
+    const run = ++dotsRun
+    const n = scene.leaving ?? 0
+    if (!n) { map?.dots([]); return }
+    const kx = 111_320 * Math.cos((p.lat * Math.PI) / 180)
+    const going = Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2 + 0.5; return [Math.cos(a), Math.sin(a), 30 + ((i * 37) % 45)] })
+    const t0 = performance.now()
+    const tick = (now: number) => {
+      if (run !== dotsRun || !sideNow) return
+      const t = Math.min(1, (now - t0) / 7000)
+      map?.dots(going.map(([x, y, d]) => ({ lon: p.lon + (x * (10 + d * t)) / kx, lat: p.lat + (y * (10 + d * t)) / 111_200, r: 3.2 })))
+      if (t < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }
+  const stepAt = (story: SideStory, year: number) => Math.max(0, story.steps.findLastIndex((s) => s.year <= year))
   let lastSent: { lon: number; lat: number }[] = []
   let lastFly: { view: object; offsetX: number } | null = null
   // the same building, kept apart from the reactive `focus` so that drawing a card does not come to depend on it
   let focusNow: Pickable | null = null
   const isFocus = (m: { lon: number; lat: number }) => !!focusNow && m.lon === focusNow.lon && m.lat === focusNow.lat
-  /** The list as the map gets it: the chosen building white, with its floors and windows drawn. */
-  const withFocus = (list: { lon: number; lat: number }[]) => (focusNow ? list.map((m) => (isFocus(m) ? { ...m, fill: '#ffffff', detail: true } : m)) : list)
+  /**
+   * The list as the map gets it. With a building chosen it stands alone: white, its street fronts drawn from
+   * its photograph; whatever stands across its streets is taken away so it can be seen from them, and the
+   * rest of the city is left as pale outlines.
+   */
+  const withFocus = <T extends { lon: number; lat: number }>(list: T[]): T[] => {
+    const p = focusNow
+    if (!p) return list
+    const kx = 111_320 * Math.cos((p.lat * Math.PI) / 180)
+    // each front's outward direction (east, north) and how far the building reaches that way
+    const fronts = (p.front?.faces ?? []).map((f) => {
+      const n = [Math.sin((f.toward * Math.PI) / 180), Math.cos((f.toward * Math.PI) / 180)]
+      const reach = Math.max(...p.parts.flatMap((q) => q.ring.map(([lon, lat]) => (lon - p.lon) * kx * n[0] + (lat - p.lat) * 111_200 * n[1])))
+      return { n, reach }
+    })
+    // a building followed through the years: how much of it is up in the year chosen, whether its photograph
+    // has been taken yet, and what stands around it then
+    const st = sideNow
+    const tall = Math.max(...p.parts.map((q) => q.h))
+    const stage = st?.story.stage?.(st.year)
+    const frame = stage && typeof stage.built === 'object' ? stage.built.frame : 0
+    const up = stage ? (stage.built === 'plot' ? 0 : 1) : st?.story.rise ? Math.max(0, Math.min(1, (st.year - st.story.rise[0]) / Math.max(1e-6, st.story.rise[1] - st.story.rise[0]))) : 1
+    // the fronts are drawn in line; the photograph stays in the panel beside the map and is not laid on the model
+    const front = p.front && up >= 1 && !frame ? { ...p.front, faces: p.front.faces.map(({ photo: _, ...f }) => f) } : null
+    const look = { fill: '#ffffff', faint: false, ...(frame ? { frame } : front ? { front } : up >= 1 ? { detail: true } : {}) }
+    const parts = p.parts.map((q) => ({ kind: 'prism' as const, x: 0, y: 0, ring: q.ring, h: q.h === tall ? Math.max(0.05, q.h * up) : stage && stage.lower === false ? 0.05 : q.h }))
+    // what else the year's record calls for: a building that stood there before
+    const extras = (stage?.extras ?? []) as unknown as T[]
+    if (st?.story.around) list = st.story.around(st.year).map((b) => ({ lon: b.lon, lat: b.lat, bearing: 0, minBase: 0, parts: b.parts }) as unknown as T)
+    // a card that does not draw the building itself still shows it once chosen
+    const standIn = list.some(isFocus) ? [] : [{ lon: p.lon, lat: p.lat, bearing: 0, minBase: 0, parts, ...look } as unknown as T]
+    return [...extras, ...standIn, ...list].flatMap((m): T[] => {
+      if (extras.includes(m)) return [m]
+      if (isFocus(m)) return [{ ...m, ...(st ? { parts } : {}), ...look }]
+      const x = (m.lon - p.lon) * kx, y = (m.lat - p.lat) * 111_200
+      if (Math.hypot(x, y) < 260 && fronts.some((f) => x * f.n[0] + y * f.n[1] > f.reach + 6)) return []
+      return [{ ...m, fill: undefined, faint: true }]
+    })
+  }
   /** The pickable building under a point of the window, if any: the one whose outline on screen is smallest. */
+  /** The side stories a card carries. */
+  const talesOf = (stop: (typeof stops)[number] | undefined): SideStory[] => (stop ? [...(stop.sideStory ? [stop.sideStory] : []), ...(stop.sideStories ?? [])] : [])
   const pickAt = (x: number, y: number): Pickable | null => {
-    const list = stops[active]?.pickable
-    if (!list || !map) return null
+    // the buildings that can be chosen on this card: those it lists, and the hotel of each of its side stories
+    const list = [...(stops[active]?.pickable ?? []), ...talesOf(stops[active]).map((t) => t.pick)]
+    if (!list.length || !map) return null
     let best: Pickable | null = null
     let size = Infinity
     for (const p of list) {
@@ -166,36 +256,76 @@
             if (!q || !q.on) continue
             x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y)
           }
-      if (x < x0 || x > x1 || y < y0 || y > y1) continue
+      if (x < x0 - 5 || x > x1 + 5 || y < y0 - 5 || y > y1 + 5) continue   // a little room round a small building
       const area = (x1 - x0) * (y1 - y0)
       if (area < size) [best, size] = [p, area]
     }
     return best
   }
   const offMap = (e: MouseEvent) => !!(e.target as HTMLElement).closest('article, nav, button, a, summary, details')
-  const focusOn = (p: Pickable) => {
+  // the compass side the camera last stood on for a side story, so it turns only when a year asks for another
+  let sideFrom: number | undefined
+  const focusOn = (p: Pickable, from?: number, subject?: { lon: number; lat: number; size: number; tall: number }) => {
     focus = focusNow = p
     map?.models(withFocus(lastSent))
-    // stand on the building's street: the nearest street centreline says which side that is
-    const kx = 111_320 * Math.cos((p.lat * Math.PI) / 180)
-    let near = Infinity
-    let dir = [0, 1]
-    for (const line of stops[active]?.context?.streetFill ?? [])
-      for (let i = 1; i < line.length; i++) {
-        const ax = (line[i - 1][0] - p.lon) * kx, ay = (line[i - 1][1] - p.lat) * 111_200
-        const bx = (line[i][0] - p.lon) * kx, by = (line[i][1] - p.lat) * 111_200
-        const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1
-        const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L))
-        const qx = ax + dx * t, qy = ay + dy * t, d = Math.hypot(qx, qy)
-        if (d < near && d > 1) [near, dir] = [d, [qx / d, qy / d]]
-      }
     const tall = Math.max(...p.parts.map((q) => q.h))
+    const main = p.parts.filter((q) => q.h >= tall * 0.7)   // the building itself, not a low wing behind it
+    const kx = 111_320 * Math.cos((p.lat * Math.PI) / 180)
+    const pts = main.flatMap((q) => q.ring)
+    const mid = { lon: (Math.min(...pts.map((q) => q[0])) + Math.max(...pts.map((q) => q[0]))) / 2, lat: (Math.min(...pts.map((q) => q[1])) + Math.max(...pts.map((q) => q[1]))) / 2 }
+    // stand in the street the building fronts, or on the corner between its two streets, a little above eye level
+    let dir = [0, -1]
+    if (from != null || p.front) {
+      const b = ((from ?? frontBearing(p.front!)) * Math.PI) / 180
+      dir = [Math.sin(b), Math.cos(b)]
+    }
+    // far enough back to take in its height, and its width as seen from there
+    const wide = Math.max(...pts.map(([lon, lat]) => Math.abs((lon - mid.lon) * kx * dir[1] - (lat - mid.lat) * 111_200 * dir[0]))) * 2
+    const fov = Math.tan((20 * Math.PI) / 180)
+    // how far its front stands toward the camera from its middle
+    const reach = Math.max(...pts.map(([lon, lat]) => (lon - mid.lon) * kx * dir[0] + (lat - mid.lat) * 111_200 * dir[1]))
+    const room = 1 - 2 * Math.abs(lastFly?.offsetX ?? 0)   // the share of the window left beside the panel
+    // a building with no drawn front is seen from further back, whole
+    const dist = (Math.max((tall * 1.25) / (2 * fov), (wide * 1.15) / (2 * fov * (window.innerWidth / window.innerHeight) * Math.max(0.35, room))) + 6) * (p.front ? 1 : 1.6) * (sideNow ? 1.45 : 1)   // a side story stands back, for the names and places it puts round the building
+    if (subject) {
+      // something else stands in for the building in this year (what was there before it): frame that, with room to see round it
+      const d = Math.max((subject.tall * 2.4) / (2 * fov), (subject.size * 2.6) / (2 * fov * (window.innerWidth / window.innerHeight) * Math.max(0.35, room))) + 10
+      map?.fly({ lon: subject.lon, lat: subject.lat, dist: d, theta: Math.atan2(-dir[1], dir[0]), phi: 1.4, lift: subject.tall * 0.4, offsetX: lastFly?.offsetX ?? 0 }, 1800)
+      return
+    }
     // theta turns the camera about the place: east is 0, south a quarter turn on
-    map?.fly({ lon: p.lon, lat: p.lat, dist: 150 + tall * 2.5, theta: Math.atan2(-dir[1], dir[0]), phi: 0.92, offsetX: lastFly?.offsetX ?? 0 }, 1800)
+    // look at the front itself, so a deep building is framed by its face and not by its middle
+    map?.fly({ lon: mid.lon + (dir[0] * reach) / kx, lat: mid.lat + (dir[1] * reach) / 111_200, dist, theta: Math.atan2(-dir[1], dir[0]), phi: 1.47, lift: tall * 0.45, offsetX: lastFly?.offsetX ?? 0 }, 1800)
+  }
+  const follow = (story: SideStory) => {
+    side = sideNow = { story, year: story.span[0] }
+    sideFrom = story.stage?.(story.span[0]).from
+    sceneWide = false
+    focusOn(story.pick, sideFrom, story.stage?.(story.span[0]).subject)
+    sceneFor(sideNow, true)
+    burnFor(sideNow)
+  }
+  /** Ground the year's record shows as burned. */
+  const burnFor = (s: { story: SideStory; year: number }) => {
+    const ring = s.story.pick.parts.reduce((a, q) => (q.h > a.h ? q : a)).ring
+    const poly = s.story.stage?.(s.year).burn ?? (s.story.steps[stepAt(s.story, s.year)].scene?.burn ? ring : undefined)
+    map?.burn(poly ? { poly, from: poly[0], colour: '#2a2a2a', opacity: 0.42, reach: 1e6 } : null)
+  }
+  /** The year chosen on a side story's slider: the building and what stands round it are drawn for that year. */
+  const setYear = (year: number) => {
+    if (!sideNow) return
+    side = sideNow = { ...sideNow, year }
+    // a year can ask to be seen from another side (the burned town lies west of the wooden hotel)
+    const from = sideNow.story.stage?.(year).from
+    if (from !== sideFrom) { sideFrom = from; focusOn(sideNow.story.pick, from, sideNow.story.stage?.(year).subject) } else map?.models(withFocus(lastSent))
+    burnFor(sideNow)
+    sceneFor(sideNow)
   }
   const unfocus = () => {
     if (!focusNow) return
     focus = focusNow = null
+    if (sideNow) { map?.burn(null); dotsRun++; map?.dots([]); if (lastMarks) map?.marks(...lastMarks) }
+    side = sideNow = null
     map?.models(lastSent)
     if (lastFly) map?.fly({ ...lastFly.view, offsetX: lastFly.offsetX }, 1600)
   }
@@ -223,8 +353,11 @@
     const stop = stops[active]
     if (!mapReady || !map || !stop) return
     const mapNow = map
+    // the card's marks go to the map through here, so they can be put back when a side story lets go of them
+    const marksNow = (...a: [object[], number[][][], number[][][]?, number[][][]?]) => { lastMarks = a; if (!sideNow) mapNow.marks(...a) }
     focusNow = null
-    untrack(() => (focus = null))   // a new card lets go of any building chosen on the last
+    sideNow = null
+    untrack(() => { focus = null; side = null })   // a new card lets go of any building chosen on the last
     // the shoreline of the card's time
     const landNow = lands[stop.land ?? '1880s']
     // a change of shore between cards slides in as the camera flies
@@ -232,12 +365,19 @@
     mapNow.edges(stop.edges)
     mapNow.bridges(!!stop.bridges)
     mapNow.dots([])
-    mapNow.streetFill(stop.context?.streetFill ?? noStreets)
-    const sites = stop.sites.map((id) => siteById.get(id)).filter((s): s is Site => !!s)
+    // filled streets carry their own outline, at the fill's edge
+    mapNow.streetFill(stop.context?.streetFill ?? noStreets, 20, { width: 0.5, colour: '#3b3b3b', opacity: 0.6, ...(stop.context?.streetStyle ?? {}) })
+    const sites = [
+      ...stop.sites.map((id) => siteById.get(id)).filter((s): s is Site => !!s),
+      // each hotel with a side story is named on the map, on a stem over its roof, and can be chosen there
+      ...talesOf(stop).map((t): Site => ({ id: `tale-${t.pick.name}`, label: `◆ Side story: ${t.pick.name}`, lon: t.pick.lon, lat: t.pick.lat, located: true, basis: '', stem: Math.max(...t.pick.parts.map((q) => q.h)) + 8 })),
+    ]
     const pairs = (stop.paths ?? []).map((pair) =>
       pair.map((id) => siteById.get(id)).filter((s): s is Site => !!s).map((s) => [s.lon, s.lat]),
     )
     const routes = (stop.routes ?? []).map((id) => routeById.get(id)).filter((r) => !!r)
+      // lines built in an earlier card stand whole; only a line in a colour of its own (a path walked) is still drawn in
+      .map((r) => (stop.railLaid && !r.colour ? { ...r, drawIn: false } : r))
     const tracks = routes.filter((r) => r.track)
     const still = routes.filter((r) => !r.drawIn && !r.solid && !r.track && !r.colour).map((r) => r.points)
     // routes in a colour of their own, dashed in it
@@ -272,7 +412,7 @@
       : 0
     mapNow.burn(burnArea ? { poly: burnArea, from: burnFrom ?? burnArea[0], colour: '#2a2a2a', opacity: BURN_OPACITY, reach: burnFrom ? 0 : 1e6 } : null)
     // Streets of the time: their edges, cut into block outlines, as the lightest line on the map.
-    const streetEdges = stop.context?.streets ?? []
+    const streetEdges = stop.context?.streetFill ? [] : (stop.context?.streets ?? [])   // where streets are filled, the fill is outlined instead
     const streetStyle = { width: 0.45, colour: '#a6a6a6', opacity: 0.55, ...(stop.context?.streetStyle ?? {}) }
     const streetGroup = [
       ...(stop.context?.parcels?.length ? [{ lines: stop.context.parcels, width: 0.35, colour: '#b9b9b9', opacity: 0.55 }] : []),
@@ -709,7 +849,7 @@
           // the names held back come in once the last buildings are up
           else {
             if (holdLetters) mapNow.groundText([...textNow, ...ownAll.filter((l) => l.later), ...(labelsLater ? [] : featureLabels)])
-            if (stop.marksAfterGrowth) mapNow.marks(sites, [...pairs, ...still], shore, accentStill)
+            if (stop.marksAfterGrowth) marksNow(sites, [...pairs, ...still], shore, accentStill)
           }
         }
         requestAnimationFrame(grow)
@@ -965,7 +1105,7 @@
             break
           }
         }
-        mapNow.marks(shown, [...pairs, ...still], shore, accentStill)
+        marksNow(shown, [...pairs, ...still], shore, accentStill)
         if (!done) requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
@@ -974,11 +1114,11 @@
     // a card can hold its site marks back until its count has run
     const sitesNow = stop.marksAfterGrowth && stop.growth && stop.growth.to > stop.growth.from ? [] : sites
     if (!moving.length && !accentMoving.length) {
-      mapNow.marks(sitesNow, [...pairs, ...still], shore, accentStill)
+      marksNow(sitesNow, [...pairs, ...still], shore, accentStill)
       return
     }
     // A route is drawn from its first point to its last, starting as the camera settles.
-    mapNow.marks(sitesNow, [...pairs, ...still], shore, accentStill)
+    marksNow(sitesNow, [...pairs, ...still], shore, accentStill)
     const [delay, duration] = [flight * 0.6, 3200]
     const start = performance.now() + delay
     // a route marked `undrawAfter` is erased again from its far end, that long after it is drawn
@@ -991,7 +1131,7 @@
     const stillGoing = (now: number) => [...moving, ...accentMoving].some((r) => (now - start) / duration < 1 || (r.undrawAfter != null && now - start - duration - r.undrawAfter < ERASE))
     const frame = (now: number) => {
       if (run !== drawing) return
-      if (now > start) mapNow.marks(sites, [...pairs, ...still, ...moving.map((r) => partial(r.points, shareOf(r, now)))], shore, [...accentStill, ...accentMoving.map((r) => partial(r.points, shareOf(r, now)))])
+      if (now > start) marksNow(sites, [...pairs, ...still, ...moving.map((r) => partial(r.points, shareOf(r, now)))], shore, [...accentStill, ...accentMoving.map((r) => partial(r.points, shareOf(r, now)))])
       if (stillGoing(now)) requestAnimationFrame(frame)
     }
     requestAnimationFrame(frame)
@@ -1059,7 +1199,7 @@
   <!-- a building chosen on the map: what is recorded about it, and the way back -->
   {#if focus}
     <aside class="pointer-events-auto fixed top-1/2 left-4 z-30 max-h-[92dvh] w-full max-w-sm -translate-y-1/2 overflow-y-auto rounded-lg bg-white/95 p-6 shadow-sm md:left-16 lg:left-56">
-      <p class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase">SRO hotel</p>
+      <p class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase">{side ? 'One hotel' : 'SRO hotel'}</p>
       <h2 class="font-display mt-1 text-2xl font-semibold tracking-tight">{focus.name}</h2>
       {#if focus.photo}
         <figure class="mt-4">
@@ -1069,20 +1209,58 @@
           </figcaption>
         </figure>
       {/if}
-      <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+      {#if side}
+        {@const at = stepAt(side.story, side.year)}
+        {@const step = side.story.steps[at]}
+        {@const src = step.sourceId ? sourceById.get(step.sourceId) : null}
+        {@const [y0, y1] = side.story.span}
+        <div class="mt-5 border-t border-[var(--rule-soft)] pt-4">
+          <!-- the year, dragged: the steps, the building and what stands round it follow -->
+          <div class="flex items-baseline justify-between">
+            <label for="side-year" class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase">Drag the year</label>
+            <output for="side-year" class="font-display text-3xl font-semibold tracking-tight text-[#8e4233] tabular-nums">{side.year}</output>
+          </div>
+          <div class="relative mt-2">
+            <input id="side-year" type="range" min={y0} max={y1} step="1" value={side.year} oninput={(e) => setYear(Number(e.currentTarget.value))} class="side-year w-full" aria-valuetext="{side.year}: {step.title}" />
+            <!-- a mark at each step's year; choosing one goes to it -->
+            <div class="relative mt-1 h-7">
+              {#each side.story.steps as s, k (s.year)}
+                <button type="button" onclick={() => setYear(s.year)} style="left: calc({((s.year - y0) / (y1 - y0)) * 100}% * 0.94 + 3%)" class="font-display absolute top-0 -translate-x-1/2 cursor-pointer text-[10px] tabular-nums {k === at ? 'font-semibold text-[#8e4233]' : 'text-[var(--ink-3)]'}" aria-label="Go to {s.year}: {s.title}">
+                  <span class="mx-auto block h-1.5 w-px {k === at ? 'bg-[#8e4233]' : 'bg-[var(--ink-3)]'}"></span>{#if k === at || k === 0 || (s.year - side.story.steps[k - 1].year) / (y1 - y0) > 0.09}{s.year}{/if}
+                </button>
+              {/each}
+            </div>
+          </div>
+          <p class="font-display mt-3 text-xs tracking-wide text-[#8e4233] uppercase tabular-nums">{step.kicker}</p>
+          <h3 class="font-display mt-1 text-lg font-semibold tracking-tight">{step.title}</h3>
+          {#each step.text as paragraph (paragraph)}
+            <p class="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">{paragraph}</p>
+          {/each}
+          {#if src}
+            <p class="mt-2 text-[11px] text-[var(--ink-3)]">{#if src.url}<a href={src.url} target="_blank" rel="noreferrer" class="underline">{src.author}</a>{:else}{src.author}{/if}</p>
+          {/if}
+          {#if side.story.note}
+            <details class="mt-3 text-xs leading-relaxed text-[var(--ink-3)]">
+              <summary class="font-display cursor-pointer tracking-wide uppercase">What this shows and leaves out</summary>
+              <p class="mt-2">{side.story.note}</p>
+            </details>
+          {/if}
+        </div>
+      {/if}
+      <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm {side ? 'hidden' : ''}">
         {#each focus.facts as fact (fact.label)}
           <dt class="font-display text-xs tracking-wide text-[var(--ink-3)] uppercase">{fact.label}</dt>
           <dd class="text-[var(--ink)]">{fact.value}</dd>
         {/each}
       </dl>
-      {#if focus.note}<p class="mt-4 text-xs leading-relaxed text-[var(--ink-3)]">{focus.note}</p>{/if}
+      {#if focus.note && !side}<p class="mt-4 text-xs leading-relaxed text-[var(--ink-3)]">{focus.note}</p>{/if}
       <button type="button" onclick={unfocus} class="font-display mt-5 cursor-pointer bg-[#1f1f1f] px-3 py-1.5 text-xs tracking-wide text-white uppercase">← Back to the map</button>
     </aside>
   {/if}
   <ChapterRail
     {chapters}
     current={chapterOf[active]?.chapterId ?? ''}
-    cards={(chapterOf[active]?.stops ?? []).map((s) => ({ title: s.title, kicker: s.kicker }))}
+    cards={(chapterOf[active]?.stops ?? []).map((s) => ({ title: s.title, kicker: s.kicker, tale: !!(s.sideStory || s.sideStories?.length) }))}
     active={active - stops.indexOf(chapterOf[active]?.stops[0])}
     onGo={(i) => sections[stops.indexOf(chapterOf[active]?.stops[0]) + i]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
     onChapter={(id) => {
@@ -1099,10 +1277,12 @@
     onclick={(e) => {
       if (offMap(e)) return
       const p = pickAt(e.clientX, e.clientY)
-      if (p) focusOn(p)
+      const tale = p && talesOf(stops[active]).find((t) => t.pick === p)
+      if (tale) follow(tale)
+      else if (p) focusOn(p)
       else unfocus()
     }}
-    onmousemove={(e) => (overPick = !offMap(e) && !!stops[active]?.pickable && !!pickAt(e.clientX, e.clientY))}
+    onmousemove={(e) => (overPick = !offMap(e) && !focus && !!pickAt(e.clientX, e.clientY))}
   >
     {#each stops as stop, i (stop.id)}
       {@const ev = event(stop.eventId)}
@@ -1119,6 +1299,29 @@
           {#each stop.text as paragraph (paragraph)}
             <p class="mt-3 leading-relaxed text-[var(--ink-2)]">{paragraph}</p>
           {/each}
+
+          {#each talesOf(stop) as tale (tale.label)}
+            <!-- a hotel's own history, followed from this card: set apart in the accent colour, with its picture -->
+            <button type="button" onclick={() => i === active && follow(tale)} class="group mt-4 flex w-full cursor-pointer items-stretch overflow-hidden border-l-4 border-[#8e4233] bg-[#8e4233]/8 text-left hover:bg-[#8e4233] hover:text-white">
+              {#if tale.pick.photo}
+                <img src="{import.meta.env.BASE_URL}images/{tale.pick.photo.file}" alt="" class="h-20 w-20 shrink-0 object-cover grayscale" />
+              {/if}
+              <span class="flex flex-col justify-center px-3 py-2">
+                <span class="font-display text-[10px] tracking-widest text-[#8e4233] uppercase group-hover:text-white">◆ Side story</span>
+                <span class="font-display text-base leading-tight font-semibold">{tale.pick.name}</span>
+                <span class="mt-0.5 text-xs text-[var(--ink-3)] group-hover:text-white">{tale.span[0]} to {tale.span[1]} · follow it through the years →</span>
+              </span>
+            </button>
+          {/each}
+
+          {#if stop.pickable?.length}
+            <!-- the buildings that can be gone to, by name, for when they are small on the map -->
+            <ul class="mt-4 flex flex-wrap gap-1.5">
+              {#each stop.pickable as p (p.name)}
+                <li><button type="button" onclick={() => i === active && focusOn(p)} class="font-display cursor-pointer border border-[#8e4233] px-2 py-1 text-[11px] tracking-wide text-[#8e4233] uppercase hover:bg-[#8e4233] hover:text-white">{p.name}</button></li>
+              {/each}
+            </ul>
+          {/if}
 
           {#if stop.photos?.length}
             <StopPhotos photos={stop.photos} />
@@ -1165,3 +1368,7 @@
 
   </div>
 </div>
+
+<style>
+  .side-year { accent-color: #8e4233; cursor: ew-resize; }
+</style>

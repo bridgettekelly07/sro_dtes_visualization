@@ -7,6 +7,7 @@
  * convenience for the map, not surveyed limits.
  */
 import { type GrowthBuilding, type MapChapter } from './stops'
+import { hotelStories } from './hotelStories'
 import { district, districtTo, footprintAt, inRing } from './district1912'
 import sroGround from './sroGround.json'
 import landmarkPlaces from './landmarks.json'
@@ -123,6 +124,7 @@ export const chapterThree: MapChapter = {
   stops: [
     {
       id: 'neighbours',
+      sideStories: hotelStories.neighbours,
       kicker: '1900 to 1941',
       title: 'Three neighbourhoods',
       text: [
@@ -154,8 +156,8 @@ export const chapterThree: MapChapter = {
       kicker: '7 September 1907',
       title: 'The riot',
       text: [
-        'On the evening of 7 September 1907 a rally of the Asiatic Exclusion League at city hall draws thousands. The crowd moves on Chinatown, breaking windows along Pender and Carrall, then marches to Powell Street, where Japanese Canadian residents hold the mob off.',
-        'Nearly every building in Chinatown is damaged. The federal government pays compensation, and negotiates limits on Japanese immigration.',
+        'On the evening of 7 September 1907 a parade and rally of the Asiatic Exclusion League draws some 5,000 men. The crowd moves on Chinatown, breaking windows along Pender and Carrall, then marches to Powell Street, where Japanese Canadian residents hold the mob off.',
+        'The mob comes back to Chinatown a second time, and this time fires guns.',
       ],
       view: { lon: -123.1000, lat: 49.2815, dist: 1300, theta: SOUTH, phi: 0.8 },
       sites: ['chinatown', 'paueru-gai', 'city-hall-1907', 'powell-grounds'],
@@ -172,7 +174,7 @@ export const chapterThree: MapChapter = {
         names: [],
         streets,
         streetStyle: { width: 0.8, colour: '#8c8c8c', opacity: 0.8 },
-        note: `The red buildings are those of the 1912 atlas within the two neighbourhoods' outlines, standing for the neighbourhoods the crowd attacked; which buildings were damaged is not mapped here. The dark building is the city hall of the day, the old market hall on Westminster Avenue behind the Carnegie Library, as the atlas marks it, at an assumed height. The red dashed line is the crowd's way as the accounts give it, from city hall to Chinatown and on to Powell Street, drawn on the direct streets. ${OUTLINES} ${ATLAS} ${SHORE}`,
+        note: `Checked 20 November 2026: the card now follows The Canadian Encyclopedia's page: 5,000 men at the parade, windows broken in Chinatown, a second attack with guns, and Japanese residents holding the mob off from their rooftops. An earlier version said nearly every building in Chinatown was damaged and that Ottawa paid compensation and negotiated limits on Japanese immigration; those are not on the page and were taken out until a source for them is read. The red buildings are those of the 1912 atlas within the two neighbourhoods' outlines, standing for the neighbourhoods the crowd attacked; which buildings were damaged is not mapped here. The dark building is the city hall of the day, the old market hall on Westminster Avenue behind the Carnegie Library, as the atlas marks it, at an assumed height. The red dashed line is the crowd's way as the accounts give it, from city hall to Chinatown and on to Powell Street, drawn on the direct streets. ${OUTLINES} ${ATLAS} ${SHORE}`,
         sourceId: 'tce-1907-riot',
       },
       eventId: 'riot-1907',
@@ -235,6 +237,7 @@ export const chapterThree: MapChapter = {
     },
     {
       id: 'uprooting',
+      sideStories: hotelStories.uprooting,
       kicker: '24 February 1942',
       title: 'Paueru Gai emptied',
       text: [

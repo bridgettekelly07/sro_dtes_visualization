@@ -8,10 +8,11 @@
  * are picked by address (scripts/build-landmarks.py) and added here.
  */
 import { type GrowthBuilding, type MapChapter } from './stops'
+import { hotelStories } from './hotelStories'
 import { inRing } from './district1912'
 import landmarks from './landmarks.json'
 import { BRIDGES86, CITY, DARK, GUIDEWAY, RED, SHORE, SOUTH, corner, edges, hotels, lateCity, landmark, rail, skytrainIds, streetFill, streetStyle, streets } from './chapterFive'
-import { redevelopment } from './chapterSix'
+import { redevelopment, woodwardsKept, woodwardsNew } from './chapterSix'
 import { chapterSevenPhotos } from './chapterSevenPhotos'
 
 const { standingBy, backdrop } = lateCity
@@ -48,17 +49,19 @@ const city = (year: number, o: Opts = {}): GrowthBuilding[] => [
   ...(o.winters === null ? [] : [picked('winters', o.winters ?? RED)]),
 ]
 
-const models: [string, string][] = [
+const models: [string, string, string?][] = [
   ['expo-grounds', 'science-world-1986'],
   ['expo-grounds', 'bc-place-1986'],
   ['canada-pavilion', 'canada-place-1986'],
   ['viaducts', 'viaducts-1972'],
   ['guideway', 'skytrain-1985'],
+  ['woodwards-w', 'woodwards-w-tower'],
+  ['woodwards-w', 'woodwards-w', RED],
 ]
 const PICKED = `The Balmoral, the Regent and the Winters are not in the 2024 survey's list of SRO buildings, having closed or burned; each is the footprint nearest its address's place along its block, at its LiDAR height, not confirmed against a plan.`
 const MAP = `${CITY} BC Place is still drawn with the dome it lost in 2010. ${PICKED} ${GUIDEWAY} ${BRIDGES86} ${SHORE}`
 const context = (note: string, sourceId: string, more: object = {}) => ({ lines: rail, names: [], streets, streetFill, streetStyle, note: `${note} ${MAP}`, sourceId, ...more })
-const base = { routes: ['cpr-main-5', ...skytrainIds], land: 'today' as const, bridges: true, edges, models }
+const base = { routes: ['cpr-main-5', ...skytrainIds], railLaid: true, land: 'today' as const, bridges: true, edges, models }
 
 const balmoral = landmarks.balmoral
 const regent = landmarks.regent
@@ -73,7 +76,7 @@ export const chapterSeven: MapChapter = {
   bare: true,
   oldShoreline: true,
   sites: [
-    { id: 'woodwards-rebuilt', label: "Woodward's, rebuilt 2010", stem: 30, lon: -123.10816, lat: 49.28293, located: true, basis: "The taller tower of the redevelopment, at Abbott and Cordova streets, from the City's 2009 footprints." },
+    { id: 'woodwards-rebuilt', label: "Woodward's, rebuilt 2010", stem: 128, lon: -123.10816, lat: 49.28293, located: true, basis: "The taller tower of the redevelopment, at Abbott and Cordova streets, from the City's 2009 footprints." },
     { id: 'overdose', label: 'Overdose emergency, 2016', ring: 420, lon: corner.mainHastings[0] - 0.0012, lat: corner.mainHastings[1] + 0.0004, located: false, basis: 'A ring over the blocks around Main and Hastings, not a boundary: the emergency was declared for the whole province.' },
     { id: 'balmoral', label: 'Balmoral Hotel', stem: 26, lon: balmoral.lon, lat: balmoral.lat, located: true, basis: 'The Balmoral, 159 East Hastings: the footprint nearest that address along the north side of the block.' },
     { id: 'regent', label: 'Regent Hotel', stem: 14, lon: regent.lon, lat: regent.lat, located: true, basis: 'The Regent, 160 East Hastings: the footprint at that address on the south side of the block.' },
@@ -84,20 +87,21 @@ export const chapterSeven: MapChapter = {
   stops: [
     {
       id: 'province-buys',
+      sideStories: hotelStories['province-buys'],
       kicker: '2007',
       title: 'The Province buys hotels',
       text: [
-        'Hotels are being sold and emptied as land prices rise. In early 2007 the Province buys ten buildings, nine SRO hotels and one apartment building, 595 units in all, to keep them as housing.',
-        'By 2011 BC Housing has bought and renovated 13 hotels with about 900 rooms.',
+        'Hotels are being sold and emptied as land prices rise. In early 2007 the Province buys ten SRO hotels, 595 rooms in all, to keep them as housing.',
+        `By the Province's later count it bought 13 buildings that year; renovated, they hold about 855 units of supportive housing.`,
       ],
       view: { lon: -123.1000, lat: 49.2816, dist: 2100, theta: SOUTH, phi: 0.77 },
       sites: [],
       ...base,
       faint: backdrop(2007),
-      stat: { value: '595', label: 'units in the ten buildings bought in 2007', after: 3500 },
+      stat: { value: '595', label: 'rooms in the ten hotels bought in 2007', after: 3500 },
       growth: { from: 2007, to: 2007, buildings: city(2007, { bought: true, store: false }) },
       context: context(
-        `The dark buildings are the ten the Province bought in 2007, as BC Housing listed them then: the Marble Arch, the St. Helen's, the Carl Rooms, the Rice Block, the Molson's Bank building, the Park Hotel, the Walton, the Orange Hall, the Orwell and the Savoy. Eight are found in the 2024 survey's list by their addresses; the Orange Hall (329 to 341 Gore; the heritage register gives 341, four storeys, 1907) is picked by address from the footprints and not confirmed. The Rice Block and the Molson's Bank building (the Roosevelt Hotel) had each other's addresses in the project's list and are corrected here: the Rice Block at 404 Hawks, the Roosevelt at 166 East Hastings. The Carl Rooms is at 335 Princess in the 2007 list and 375 Princess in the 2024 one; they are taken as one building. The list is read from a bulletin of the mayor's of April 2007 that reprints BC Housing's table; the City's 2007 report gives the same totals. That hotels were being sold and emptied as prices rose is the chapter's summary, not a count. The other SRO hotels of today's list standing by 2007 are red. Woodward's block is empty: the store was demolished in 2006.`,
+        `Checked 20 November 2026: the mayor's bulletin gives 595 rooms in ten SRO hotels, and the card now says so (an earlier version called one of the ten an apartment building). The 13 buildings and about 855 units are from the Province's release of 24 March 2017 on the end of the renovations (news.gov.bc.ca/releases/2017MNGD0050-000837); an earlier version gave 13 hotels and about 900 rooms by 2011, which was not found on a page read. The two counts, ten and 13, are each source's own. The dark buildings are the ten the Province bought in 2007, as BC Housing listed them then: the Marble Arch, the St. Helen's, the Carl Rooms, the Rice Block, the Molson's Bank building, the Park Hotel, the Walton, the Orange Hall, the Orwell and the Savoy. Eight are found in the 2024 survey's list by their addresses; the Orange Hall (329 to 341 Gore; the heritage register gives 341, four storeys, 1907) is picked by address from the footprints and not confirmed. The Rice Block and the Molson's Bank building (the Roosevelt Hotel) had each other's addresses in the project's list and are corrected here: the Rice Block at 404 Hawks, the Roosevelt at 166 East Hastings. The Carl Rooms is at 335 Princess in the 2007 list and 375 Princess in the 2024 one; they are taken as one building. The list is read from a bulletin of the mayor's of April 2007 that reprints BC Housing's table; the City's 2007 report gives the same totals. That hotels were being sold and emptied as prices rose is the chapter's summary, not a count. The other SRO hotels of today's list standing by 2007 are red. Woodward's block is empty: the store was demolished in 2006.`,
         'sullivan-bulletin-2007',
       ),
       eventId: 'province-buys-hotels',
@@ -107,19 +111,20 @@ export const chapterSeven: MapChapter = {
       kicker: '2006 to 2010',
       title: "Woodward's rebuilt",
       text: [
-        'Eighteen months after buying the building, the City picks a developer for the block. The store is demolished in 2006, and in 2010 the block reopens as a mix: market condominiums, shops, a university arts school and social housing, with the old "W" kept above it.',
-        'The squatters had demanded that all of it be social housing. About a fifth of it is.',
+        'Eighteen months after buying the building, the City picks a developer for the block. In 2006 the store is demolished, all but its oldest corner at Hastings and Abbott. In 2010 the block reopens as a mix: two towers of market condominiums, shops, a university arts school and social housing, with a red "W" turning above it again.',
+        'The squatters had demanded that all of it be social housing. Of its 736 homes, 200 are: a little over a quarter.',
       ],
-      view: { lon: -123.1082, lat: 49.2824, dist: 760, theta: SOUTH, phi: 0.72 },
+      view: { lon: -123.1079, lat: 49.2829, dist: 640, theta: SOUTH - 0.45, phi: 1.08 },
       sites: ['woodwards-rebuilt'],
       ...base,
       faint: backdrop(2009),
-      growth: { from: 2010, to: 2010, buildings: city(2009) },
-      // the store stands dark, comes down, and the redevelopment rises in its place
-      clear: { old: landmark('woodwards-1903'), then: redevelopment, fill: DARK, at: 3000, ms: 2600 },
-      stat: { value: '≈ 20%', label: 'of the block is social housing; the squat demanded 100%', after: 9500 },
+      growth: { from: 2010, to: 2010, buildings: [...city(2009).filter((b) => !((b.built ?? 0) >= 2004 && inRing(b.lon, b.lat, woodwardsBlock))), ...woodwardsKept.map((b) => ({ ...b, fill: DARK }))] },   // today's footprints of the new buildings would stand in the way of their rising
+      // the store stands dark and comes down around its oldest corner, which stays; the towers, the lower
+      // buildings and the W rise in its place
+      clear: { old: landmark('woodwards-1903'), then: woodwardsNew, fill: DARK, at: 3000, ms: 3200 },
+      stat: { value: '200 of 736', label: 'homes are non-market; the squat demanded all of them', after: 9500 },
       context: context(
-        `The dark store that comes down is Woodward's as Goad's 1912 atlas draws it, at an assumed 20 m. What rises is the redevelopment from the roof parts of the City's 2009 footprints at their LiDAR heights, surveyed a year before it opened: the two towers, about 120 m and 96 m, and the lower buildings along Hastings. The oldest corner of the store was kept and built into it; which part that is is not marked in the data, and the "W" on its tower is not modelled. The dates, the developer's selection and the share of social housing are as CBC News gave them in 2022.`,
+        `Checked 20 November 2026: the count of homes is The Tyee's (25 February 2015): 536 market condominiums and 200 below-market units, 125 of them single rooms at the shelter rate and 75 with rent geared to income. An earlier version said about a fifth, CBC's figure, which may be measured differently. The dark store that comes down is Woodward's as Goad's 1912 atlas draws it, at an assumed 20 m. What rises is the redevelopment from the roof parts of the City's 2009 footprints at their LiDAR heights, surveyed a year before it opened: the two towers, about 120 m and 96 m, and the lower buildings along Hastings. The oldest corner of the store, at Hastings and Abbott, was kept and built into it: it is taken to be the building the City's footprints draw on that corner, and stands while the rest comes down. The red "W" is drawn as a type over that corner, a letter of about 5 m on a lattice tower of about 20 m, neither measured, and placed on the corner's roof by judgement; the W there today is understood to be a replica made for the reopening, which the sources read do not confirm. The dates and the developer's selection are as CBC News gave them in 2022.`,
         'cbc-woodsquat-2022',
       ),
       eventId: 'olympics-woodwards',
@@ -140,7 +145,7 @@ export const chapterSeven: MapChapter = {
       stat: { value: '4,500', label: 'SRO rooms to be replaced over thirty years', after: 8000 },
       growth: { from: 2014, to: 2014, buildings: city(2014) },
       context: context(
-        `The plan's boundary and sub-areas are not drawn: they are not yet read into the project. Today's SRO buildings standing by 2014 turn red outward from Main and Hastings; they are not a list of the 4,500 rooms, which the plan counts across the stock.`,
+        `Checked 20 November 2026: the City's reports refuse automated reading. Summaries of them give 4,500 rooms over thirty years in the 2015 survey and 5,000 in the 2020 report; neither was read. The plan's boundary and sub-areas are not drawn: they are not yet read into the project. Today's SRO buildings standing by 2014 turn red outward from Main and Hastings; they are not a list of the 4,500 rooms, which the plan counts across the stock.`,
         'cov-report-2016',
       ),
       eventId: 'dtes-plan',
@@ -166,10 +171,11 @@ export const chapterSeven: MapChapter = {
     },
     {
       id: 'balmoral-regent',
+      sideStories: hotelStories['balmoral-regent'],
       kicker: '2017 to 2020',
       title: 'The Balmoral and the Regent',
       text: [
-        'Two of the largest hotels on Hastings have been let fall apart by their owners. In June 2017 the City orders the Balmoral emptied as unsafe, and at the end of June 2018 it shuts the Regent. About 300 tenants are displaced.',
+        'Two of the largest hotels on Hastings have been let fall apart by their owners. In June 2017 the City orders the Balmoral emptied as unsafe, and at the end of June 2018 it shuts the Regent. More than 200 tenants lose their rooms: the City relocates 92 from the Regent, and finds 131 rooms for those ordered out of the Balmoral.',
         'Council votes to expropriate both in November 2019, and the City takes them over in 2020.',
       ],
       view: { lon: -123.1008, lat: 49.2814, dist: 760, theta: SOUTH, phi: 0.7 },
@@ -178,21 +184,22 @@ export const chapterSeven: MapChapter = {
       faint: backdrop(2018),
       growth: { from: 2018, to: 2018, buildings: city(2018, { balmoralRegent: DARK }) },
       scatter: { from: [{ lon: balmoral.lon, lat: balmoral.lat, weight: 1 }, { lon: regent.lon, lat: regent.lat, weight: 1 }], count: 60, away: [-123.1008, 49.2814], reach: [250, 700], ms: 9000, delay: 2200 },
-      stat: { value: '≈ 300', label: 'tenants displaced from the two hotels', after: 3000 },
+      stat: { value: '200+', label: 'tenants left the two hotels', after: 3000 },
       context: context(
-        `The two dark buildings are the Balmoral (159 East Hastings) and the Regent (160 East Hastings). Each grey dot leaving stands for about five of the more than 300 tenants; where they went is not recorded here. The dates are from Global News: the Balmoral's tenants were to be out by 12 June 2017, the Regent was shut at the end of June 2018, council voted in November 2019 and a settlement was announced in December 2020 (the City's own 2020 report is inconsistent on the years). The owners were the Sahota family; that they let the buildings fall apart is the City's account in ordering them closed. The Balmoral was demolished by 2024.`,
+        `Checked 20 November 2026: the figures are the Georgia Straight's (29 June 2018: 92 tenants relocated from the Regent, and more than 200 lower-income tenants gone from the block with both hotels closed) and Global News's (10 June 2017: 131 rooms found for the Balmoral's tenants, with perhaps 30 to 50 more people unaccounted for). An earlier version said about 300, which is on no page read. Global News dates the Balmoral order to 2 June 2017. The two dark buildings are the Balmoral (159 East Hastings) and the Regent (160 East Hastings). Each grey dot leaving stands for about five of the more than 300 tenants; where they went is not recorded here. The dates are from Global News: the Balmoral's tenants were to be out by 12 June 2017, the Regent was shut at the end of June 2018, council voted in November 2019 and a settlement was announced in December 2020 (the City's own 2020 report is inconsistent on the years). The owners were the Sahota family; that they let the buildings fall apart is the City's account in ordering them closed. The Balmoral was demolished by 2024.`,
         'cov-report-2020',
       ),
       eventId: 'balmoral-regent',
     },
     {
       id: 'winters-fire',
+      sideStories: hotelStories['winters-fire'],
       kicker: '11 April 2022',
       title: 'The Winters Hotel fire',
       text: [
-        'On 11 April 2022 fire guts the Winters Hotel, a four-storey SRO in Gastown. Its 71 residents lose their homes and everything in them.',
+        `On 11 April 2022 fire guts the Winters Hotel, a four-storey SRO in Gastown. The fire puts 140 people out of the building, which also holds a women's shelter, and sends five to hospital.`,
         'The City has the building pulled down within days. During the demolition the bodies of two residents, Mary Ann Garlow and Dennis Guay, are found in the ruins.',
-        'A coroner\'s inquest in 2024 hears that the sprinklers, shut off after a fire three days earlier, never came on.',
+        'A coroner\'s inquest in 2024 hears that the sprinklers, not reset after a fire three days earlier, never came on.',
       ],
       view: { lon: -123.1064, lat: 49.2834, dist: 620, theta: SOUTH, phi: 0.68 },
       sites: ['winters'],
@@ -201,9 +208,9 @@ export const chapterSeven: MapChapter = {
       growth: { from: 2022, to: 2022, buildings: city(2022, { balmoralRegent: EMPTY, winters: null }) },
       // the hotel stands dark, the charcoal spreads over it, and it comes down
       clear: { old: [picked('winters')], then: [], fill: DARK, at: 5200, ms: 2400 },
-      stat: { value: '71', label: 'residents lost their homes; two died', after: 8500 },
+      stat: { value: '140', label: 'people displaced from the building; two died', after: 8500 },
       context: context(
-        `The dark building is the Winters Hotel at 203 Abbott Street, picked by address; the charcoal is the fire, and the building comes down as it was demolished that month. The account is from Global News's reporting of April 2022 and of the coroner's inquest, whose verdict of 5 February 2024 ruled both deaths accidental: the sprinklers had been ordered reset on 8 April and never deployed. One report gives 71 residents displaced from the Winters; another gives 140, counting the hotel next door. CBC's reporting, first used here, could only be read in summary. The Balmoral and the Regent, closed, are grey.`,
+        `Checked 20 November 2026: the card now follows the Global News page cited: 140 people displaced from the building, five in hospital, two dead, and sprinklers that never deployed, not having been reset straight after the earlier fire. An earlier version gave 71 residents, which is not on that page. The dark building is the Winters Hotel at 203 Abbott Street, picked by address; the charcoal is the fire, and the building comes down as it was demolished that month. The account is from Global News's reporting of April 2022 and of the coroner's inquest, whose verdict of 5 February 2024 ruled both deaths accidental: the sprinklers had been ordered reset on 8 April and never deployed. One report gives 71 residents displaced from the Winters; another gives 140, counting the hotel next door. CBC's reporting, first used here, could only be read in summary. The Balmoral and the Regent, closed, are grey.`,
         'global-winters-inquest-2024',
         { burnArea: winters.parts[0].ring as Ring, burnFrom: [winters.lon, winters.lat] as [number, number] },
       ),
@@ -211,21 +218,21 @@ export const chapterSeven: MapChapter = {
     },
     {
       id: 'decampment',
-      kicker: '5 and 6 April 2023',
+      kicker: '5 April 2023',
       title: 'The tents on Hastings',
       text: [
-        'With rooms closed, burned and too dear, people are living in tents along East Hastings. At its peak the encampment has 180 structures.',
-        'On 5 and 6 April 2023 City crews, with about a hundred police, remove it block by block, taking down 94 structures. Shelters say they are overwhelmed.',
+        'With rooms closed, burned and too dear, people are living in tents along East Hastings. More than a hundred tents line the street.',
+        `On 5 April 2023 City crews, with police, begin removing the tents and structures still there, about 80 by the City's count, block by block. Shelters say they are overwhelmed.`,
       ],
       view: { lon: -123.0996, lat: 49.2815, dist: 1000, theta: SOUTH, phi: 0.62 },
       sites: ['encampment'],
       ...base,
       faint: backdrop(2023),
       growth: { from: 2023, to: 2023, buildings: city(2023, { balmoralRegent: EMPTY, winters: null }) },
-      scatter: { from: along(columbiaHastings, corner.mainHastings, 24), count: 94, away: [-123.0999, 49.2813], reach: [300, 900], ms: 10000, delay: 2500 },
-      stat: { value: '94', label: 'structures taken down on 5 and 6 April 2023', after: 3500 },
+      scatter: { from: along(columbiaHastings, corner.mainHastings, 24), count: 80, away: [-123.0999, 49.2813], reach: [300, 900], ms: 10000, delay: 2500 },
+      stat: { value: '≈ 80', label: 'tents and structures left to remove on 5 April 2023', after: 3500 },
       context: context(
-        `Each grey dot is one of the 94 structures the City says its crews took down, leaving East Hastings between Columbia and Main streets, the block Global News reports cleared on the first day; the Globe and Mail gives the stretch as Main to Abbott, and the next day police closed Main to Gore. Their places along the street and where the people went are illustrative. The figures (180 structures at the peak, 94 removed) are the City's, as CBC News reported them, read in summary; the City and police gave falling assaults and fires as their reasons, and residents and advocates said the removal did more harm than good. That people were in tents because rooms were closed, burned or too dear is the chapter's argument, not the sources' wording. The Winters Hotel's site is empty; the Balmoral and the Regent, closed, are grey.`,
+        `Checked 20 November 2026: the card now follows the Global News page cited: more than 100 tents, about 80 tents and structures remaining by the City's count on 5 April, removed block by block from Columbia toward Main with police. An earlier version gave 180 structures at the peak, 94 taken down over two days and about a hundred police; none of those is on the page. Each grey dot is one of the 94 structures the City says its crews took down, leaving East Hastings between Columbia and Main streets, the block Global News reports cleared on the first day; the Globe and Mail gives the stretch as Main to Abbott, and the next day police closed Main to Gore. Their places along the street and where the people went are illustrative. The figures (180 structures at the peak, 94 removed) are the City's, as CBC News reported them, read in summary; the City and police gave falling assaults and fires as their reasons, and residents and advocates said the removal did more harm than good. That people were in tents because rooms were closed, burned or too dear is the chapter's argument, not the sources' wording. The Winters Hotel's site is empty; the Balmoral and the Regent, closed, are grey.`,
         'global-decampment-2023',
       ),
       eventId: 'hastings-decampment',

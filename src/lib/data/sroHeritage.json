@@ -1,0 +1,390 @@
+{
+ "source": "City of Vancouver Open Data, \"Heritage sites\" (the Vancouver Heritage Register), matched to the SRO buildings by street address. Made by scripts/build-sro-heritage.py.",
+ "retrieved": "2026-11-20",
+ "buildings": {
+  "DANNY'S INN/ROOMS": {
+   "group": "B",
+   "designated": true,
+   "registerName": "N/A",
+   "address": "313-325 CAMBIE ST"
+  },
+  "DOMINION HOTEL": {
+   "group": "B",
+   "designated": true,
+   "registerName": "Dominion Hotel",
+   "address": "210 ABBOTT ST"
+  },
+  "KEEFER CABINS (KEEFER APARTMENTS)": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "727 KEEFER ST"
+  },
+  "THE BEACON (BEACON HOTEL)": {
+   "group": "B",
+   "designated": true,
+   "registerName": "N/A",
+   "address": "7-11 W HASTINGS ST"
+  },
+  "THE GRESHAM": {
+   "group": "B",
+   "designated": true,
+   "registerName": "N/A",
+   "address": "7-11 W HASTINGS ST"
+  },
+  "(5 W HASTINGS) CANADIAN NORTH STAR": {
+   "group": "B",
+   "designated": true,
+   "registerName": "N/A",
+   "address": "5 W HASTINGS ST"
+  },
+  "ARGYLE HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "106 W HASTINGS ST"
+  },
+  "1218 E GEORGIA": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "1218 E GEORGIA ST"
+  },
+  "FLINT RESIDENCE": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "1516 POWELL ST"
+  },
+  "GEORGIA MANOR": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "634 E GEORGIA ST"
+  },
+  "NEW COLUMBIA (TAWOW)": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Columbia Hotel",
+   "address": "303 COLUMBIA ST"
+  },
+  "55 POWELL (GRAND TRUNK)": {
+   "group": "B",
+   "designated": true,
+   "registerName": "N/A",
+   "address": "55 POWELL ST"
+  },
+  "GOLDEN CROWN HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "116-120 W HASTINGS ST"
+  },
+  "PENNSYLVANIA HOTEL": {
+   "group": "B",
+   "designated": true,
+   "registerName": "Woods/Pennsylvania Hotel",
+   "address": "412 CARRALL ST"
+  },
+  "PICADILLY/PENDER PLACE (2)": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Piccadilly Hotel",
+   "address": "620-622 W PENDER ST"
+  },
+  "SUNRISE HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Irving Hotel",
+   "address": "101 E HASTINGS ST"
+  },
+  "CHINESE FREEMASONS": {
+   "group": "N/A",
+   "designated": true,
+   "registerName": "N/A",
+   "address": "110-116 E PENDER ST"
+  },
+  "EUROPE HOTEL": {
+   "group": "A",
+   "designated": true,
+   "registerName": "Europe Hotel",
+   "address": "41-49 POWELL ST"
+  },
+  "TOI SAN BENEVOLENT (TOI SHAN BENEVOLENT / PHOENIX HOTEL)": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Phoenix Hotel",
+   "address": "237 E HASTINGS ST"
+  },
+  "GLORY HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Filion Block",
+   "address": "202-206 CARRALL ST"
+  },
+  "HOTEL CANADA (MARBLE ARCH HOTEL)": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Marble Arch Hotel",
+   "address": "518 RICHARDS ST"
+  },
+  "PARK HOTEL": {
+   "group": "C",
+   "designated": false,
+   "registerName": "The Montgomery",
+   "address": "429-433 W PENDER ST"
+  },
+  "RAINIER HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Rainier Hotel",
+   "address": "311-319 CARRALL ST"
+  },
+  "STATION STREET HOTEL (PARK)": {
+   "group": "C",
+   "designated": false,
+   "registerName": "The Montgomery",
+   "address": "429-433 W PENDER ST"
+  },
+  "TRAVELLER'S HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Fortin Building",
+   "address": "57 W CORDOVA ST"
+  },
+  "YALE HOTEL": {
+   "group": "B",
+   "designated": true,
+   "registerName": "Yale Hotel",
+   "address": "1300 GRANVILLE ST"
+  },
+  "AFTON HOTEL/ROOMS": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Afton Hotel",
+   "address": "249-251 E HASTINGS ST"
+  },
+  "BELMONT STUDENT RESIDENCE (BELMONT INN)": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Belmont Building",
+   "address": "239-241 E HASTINGS ST"
+  },
+  "GASTOWN HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Thompson Rooming House",
+   "address": "110 WATER ST"
+  },
+  "HILDON HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Manitoba Hotel",
+   "address": "40-50 W CORDOVA ST"
+  },
+  "IVANHOE HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Ivanhoe Hotel",
+   "address": "1038 MAIN ST"
+  },
+  "MT EVEREST ROOMS": {
+   "group": "C",
+   "designated": false,
+   "registerName": "F. Morgan Building",
+   "address": "242-244 E HASTINGS ST"
+  },
+  "REGAL HOTEL": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Regal Hotel",
+   "address": "1044-1048 GRANVILLE ST"
+  },
+  "SIESTA ROOMS": {
+   "group": "C",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "932-940 GRANVILLE ST"
+  },
+  "SUMMER HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Tweedale Block",
+   "address": "341 E HASTINGS ST"
+  },
+  "VOGUE HOTEL": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Vogue Hotel",
+   "address": "1060 GRANVILLE ST"
+  },
+  "COLONIAL RESIDENCE": {
+   "group": "N/A",
+   "designated": true,
+   "registerName": "Des Brisay Block",
+   "address": "122 WATER ST"
+  },
+  "DEL MAR HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "553-555 HAMILTON ST"
+  },
+  "JUBILEE ROOMS": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "237-239 MAIN ST"
+  },
+  "METROPOLE HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Hotel Metropole",
+   "address": "320 ABBOTT ST"
+  },
+  "NEW SUN AH HOTEL": {
+   "group": "B",
+   "designated": true,
+   "registerName": "Sun Ah Hotel",
+   "address": "100-102 E PENDER ST"
+  },
+  "ST. HELEN'S HOTEL": {
+   "group": "C",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "1161 GRANVILLE ST"
+  },
+  "ALEXANDER RESIDENCE": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Alexander Residence",
+   "address": "58 ALEXANDER ST"
+  },
+  "ARLINGTON ROOMS": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Arlington Rooms",
+   "address": "575-577 E PENDER ST"
+  },
+  "ARNO ROOMS": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "291-297 E GEORGIA ST"
+  },
+  "CENTRAL RESIDENCE": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "42-44 E CORDOVA ST"
+  },
+  "CORDOVA ROOMS": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "50-52 E CORDOVA ST"
+  },
+  "HAMPTON HOTEL": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Hampton Hotel",
+   "address": "122-124 POWELL ST"
+  },
+  "HAZELWOOD": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Hazelwood Hotel",
+   "address": "342 E HASTINGS ST"
+  },
+  "HOTEL WASHINGTON (MAPLE HOTEL)": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Washington Hotel",
+   "address": "177-179 E HASTINGS ST"
+  },
+  "MURRAY HOTEL": {
+   "group": "B",
+   "designated": true,
+   "registerName": "Murray Hotel",
+   "address": "1117-1119 HORNBY ST"
+  },
+  "ROOSEVELT HOTEL (MOLSON HOTEL)": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Roosevelt Hotel",
+   "address": "166 E HASTINGS ST"
+  },
+  "SHAMROCK HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Shamrock Hotel",
+   "address": "635-637 E HASTINGS ST"
+  },
+  "UNITED ROOMS": {
+   "group": "C",
+   "designated": false,
+   "registerName": "United Rooms",
+   "address": "139 E CORDOVA ST"
+  },
+  "WEST HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "West Hotel",
+   "address": "488 CARRALL ST"
+  },
+  "WONDER ROOMS": {
+   "group": "B",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "50-52 E CORDOVA ST"
+  },
+  "EMPRESS HOTEL": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Hotel Empress",
+   "address": "235 E HASTINGS ST"
+  },
+  "RICE BLOCK": {
+   "group": "C",
+   "designated": false,
+   "registerName": "Rice Block",
+   "address": "404 HAWKS AV"
+  },
+  "SKWACHAY'S HEALING LODGE": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Pender Hotel",
+   "address": "29-31 W PENDER ST"
+  },
+  "PENDER PLACE": {
+   "group": "N/A",
+   "designated": true,
+   "registerName": "N/A",
+   "address": "228 E PENDER ST"
+  },
+  "ASIA HOTEL": {
+   "group": "C",
+   "designated": true,
+   "registerName": "Mah Society",
+   "address": "137-139 E PENDER ST"
+  },
+  "MARR HOTEL": {
+   "group": "B",
+   "designated": false,
+   "registerName": "Imperial Hotel",
+   "address": "401 POWELL ST"
+  },
+  "COSY CORNER INN/ 412 COLUMBIA": {
+   "group": "A",
+   "designated": false,
+   "registerName": "N/A",
+   "address": "100-102 E HASTINGS ST"
+  },
+  "TAMURA HOUSE": {
+   "group": "A",
+   "designated": false,
+   "registerName": "New World Hotel",
+   "address": "390-396 POWELL ST"
+  }
+ }
+}

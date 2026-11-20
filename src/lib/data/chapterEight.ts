@@ -11,10 +11,13 @@
  * (src/lib/data/sroIssues.json), a snapshot of one day.
  */
 import { type GrowthBuilding, type MapChapter, type Pickable } from './stops'
+import { hotelStories } from './hotelStories'
 import sroBuildings from '../../../public/data/district/sro-buildings.json'
 import landmarks from './landmarks.json'
 import { roomCounts } from './rooms'
 import { hotelPhotos } from './hotelPhotos'
+import { hotelFronts } from './hotelFronts'
+import sroHeritage from './sroHeritage.json'
 import sroIssues from './sroIssues.json'
 import { BRIDGES86, CITY, DARK, GUIDEWAY, RED, SHORE, SOUTH, corner, edges, hotels, lateCity, landmark, rail, skytrainIds, streetFill, streetStyle, streets } from './chapterFive'
 import { redevelopment } from './chapterSix'
@@ -57,17 +60,19 @@ const city = (fill: (b: Listed | undefined, h: (typeof hotels)[number]) => strin
   ...listed.map((h) => ({ ...h, fill: isClosed(byName.get(h.name)) ? EMPTY : fill(byName.get(h.name), h) })),
 ]
 
-const models: [string, string][] = [
+const models: [string, string, string?][] = [
   ['expo-grounds', 'science-world-1986'],
   ['expo-grounds', 'bc-place-1986'],
   ['canada-pavilion', 'canada-place-1986'],
   ['viaducts', 'viaducts-1972'],
   ['guideway', 'skytrain-1985'],
+  ['woodwards-w', 'woodwards-w-tower'],
+  ['woodwards-w', 'woodwards-w', RED],
 ]
 const LIST = `The buildings are those of the 2024 SRO Tenant Survey's list (Appendix B), transcribed from the report: 143 buildings and ${fmt(sum(survey))} rooms. ${listed.length} of them have a footprint in the project and are drawn; the figures are the survey's totals over all 143. The Regent, closed since 2018, is pale grey, and the Balmoral, demolished by 2024, is gone; pale grey too are the ${shut.length} buildings on the list that the survey found closed (${shut.map((b) => b.name.replace(/\w\S*/g, (w) => w[0] + w.slice(1).toLowerCase())).join(', ')}): their ${fmt(sum(shut))} rooms are still in the survey's totals. Three more are on the list as designated under the by-law but not run as SROs. BC Place is still drawn with the dome it lost in 2010.`
 const MAP = `${LIST} ${CITY} ${GUIDEWAY} ${BRIDGES86} ${SHORE}`
 const context = (note: string, sourceId: string) => ({ lines: rail, names: [], streets, streetFill, streetStyle, note: `${note} ${MAP}`, sourceId })
-const base = { routes: ['cpr-main-5', ...skytrainIds], land: 'today' as const, bridges: true, edges, models, sites: [] as string[], faint: lateCity.backdrop(2025) }
+const base = { routes: ['cpr-main-5', ...skytrainIds], railLaid: true, land: 'today' as const, bridges: true, edges, models, sites: [] as string[], faint: lateCity.backdrop(2025) }
 const wide = { lon: -123.1010, lat: 49.2818, dist: 2300, theta: SOUTH, phi: 0.72 }
 
 // unresolved by-law issues on file at each building, from the City's open data on the day it was read
@@ -83,30 +88,44 @@ const core = (year: number) => roomCounts.find((r) => r.series === 'core-private
 const byBoom = listed.filter((h) => h.built != null && h.built <= 1914).length
 const dated = listed.filter((h) => h.built != null).length
 
-// The hotels of the boom, each to be chosen on the map: what the survey and the property records say of it.
+// The hotels that can be gone to on the map: those of the boom that have a photograph from the street whose
+// front can be read (hotelFronts.ts) and a place on the Vancouver Heritage Register (sroHeritage.json).
 const ownerOf = (b: Listed) => (b.ownerType === 'Chinese Society' ? 'A Chinese benevolent society' : b.ownerType === 'Private' ? 'Private' : b.ownerType)
-const boomHotels: Pickable[] = listed
-  .filter((h) => h.built != null && h.built <= 1914)
-  .map((h) => {
-    const b = byName.get(h.name)
-    const parts = h.parts.filter((p) => p.kind === 'prism').map((p) => ({ ring: p.ring as Ring, h: p.h }))
-    const tall = Math.max(...parts.map((p) => p.h))
-    return {
-      name: h.name.replace(/\w\S*/g, (w) => w[0] + w.slice(1).toLowerCase()),
-      lon: h.lon,
-      lat: h.lat,
-      parts,
-      photo: hotelPhotos[h.name],
-      facts: [
-        { label: 'Address', value: (h as unknown as { addr: string }).addr },
-        { label: 'Built', value: `${h.built}, by the lot's property record` },
-        { label: 'Rooms', value: `${b?.rooms ?? h.rooms} in 2024` },
-        ...(b ? [{ label: 'Owner', value: ownerOf(b) }, { label: 'Run by', value: b.operator === 'Chinese Society' ? 'A Chinese benevolent society' : b.operator }, { label: 'Rooms are', value: b.tenure === 'market' ? 'rented on the market' : b.tenure === 'nonmarket' ? 'non-market housing' : 'not surveyed' }] : []),
-        { label: 'Height', value: `about ${Math.round(tall)} m, from the 2009 LiDAR` },
-      ],
-      note: "The building is today's footprint raised to its measured height. Its floors and windows are drawn by rule from that height, as a type: they are not the building's own storeys, bays or openings, and its street front is not yet recorded.",
-    }
-  })
+const heritage = sroHeritage.buildings as Record<string, { group: string; designated: boolean; registerName: string; address: string }>
+const CLASS: Record<string, string> = { A: 'class A (primary significance)', B: 'class B (significant)', C: 'class C (contextual or character)' }
+const nice = (name: string) => name.replace(/\w\S*/g, (w) => w[0] + w.slice(1).toLowerCase())
+const chosen = listed.filter((h) => h.built != null && h.built <= 1914 && hotelPhotos[h.name] && hotelFronts[h.name] && heritage[h.name])
+const isChosen = new Set(chosen.map((h) => h.name))
+const boomHotels: Pickable[] = chosen.map((h) => {
+  const b = byName.get(h.name)
+  const parts = h.parts.filter((p) => p.kind === 'prism').map((p) => ({ ring: p.ring as Ring, h: p.h }))
+  const tall = Math.max(...parts.map((p) => p.h))
+  const reg = heritage[h.name]
+  const { front, read } = hotelFronts[h.name]
+  return {
+    name: nice(h.name),
+    lon: h.lon,
+    lat: h.lat,
+    parts,
+    photo: hotelPhotos[h.name],
+    front,
+    facts: [
+      { label: 'Address', value: (h as unknown as { addr: string }).addr },
+      { label: 'Built', value: `${h.built}, by the lot's property record` },
+      { label: 'Heritage', value: `On the City's register, ${CLASS[reg.group] ?? `class ${reg.group}`}${reg.designated ? ', and designated' : ''}${reg.registerName && reg.registerName !== 'N/A' && reg.registerName.toUpperCase() !== h.name ? `, as the ${reg.registerName}` : ''}` },
+      { label: 'Rooms', value: `${b?.rooms ?? h.rooms} in 2024` },
+      ...(b ? [{ label: 'Owner', value: ownerOf(b) }, { label: 'Run by', value: b.operator === 'Chinese Society' ? 'A Chinese benevolent society' : b.operator }, { label: 'Rooms are', value: b.tenure === 'market' ? 'rented on the market' : b.tenure === 'nonmarket' ? 'non-market housing' : 'not surveyed' }] : []),
+      { label: 'Height', value: `about ${Math.round(tall)} m, from the 2009 LiDAR` },
+    ],
+    note: `The model is today's footprint raised to its measured height, with its street fronts drawn in line from the photograph above, counted by eye: storeys and window bays are as the photograph shows them, spaced evenly, and the sills, heads and shopfronts are the usual detail of such a front, not the building's own. Walls that face no street are left blank. ${read}`,
+  }
+})
+// a view that takes in all of them, from Granville Street to Main
+const chosenView = (() => {
+  const lons = chosen.map((h) => h.lon), lats = chosen.map((h) => h.lat)
+  return { lon: (Math.min(...lons) + Math.max(...lons)) / 2, lat: (Math.min(...lats) + Math.max(...lats)) / 2 }
+})()
+const numberWord = ['no', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen'][chosen.length] ?? String(chosen.length)
 
 export const chapterEight: MapChapter = {
   chapterId: 'rooms-today',
@@ -129,10 +148,11 @@ export const chapterEight: MapChapter = {
       highlight: { from: corner.mainHastings, ms: 7000 },
       stat: { value: fmt(sum(survey)), label: 'rooms in 143 buildings, 2024', after: 8000 },
       growth: { from: 2025, to: 2025, buildings: city(() => RED) },
-      context: context(`Every building on the survey's list turns red outward from Main and Hastings. That most rooms share a bathroom is the type as the City's surveys define it, not counted building by building here.`, 'sro-tenant-survey-2024'),
+      context: context(`Checked 20 November 2026: no page outside the report was found that gives the 2024 survey's totals; they are as transcribed from its list. Every building on the survey's list turns red outward from Main and Hastings. That most rooms share a bathroom is the type as the City's surveys define it, not counted building by building here.`, 'sro-tenant-survey-2024'),
     },
     {
       id: 'who-owns',
+      sideStories: hotelStories['who-owns'],
       kicker: '2024',
       title: 'Who owns them',
       text: [
@@ -177,9 +197,7 @@ export const chapterEight: MapChapter = {
       text: [
         `These are the hotels of chapter 2. Of the ${dated} buildings on the map that the property records date, ${byBoom} were standing by 1914: built in the boom to lodge loggers, miners and fishers between seasons.`,
         'More than a century on, they are housing of last resort, in buildings never meant to be lived in for a lifetime.',
-        'Choose a red hotel on the map to go to it.',
       ],
-      pickable: boomHotels,
       view: wide,
       ...base,
       legend: [
@@ -193,6 +211,7 @@ export const chapterEight: MapChapter = {
     },
     {
       id: 'state-of-repair',
+      sideStories: hotelStories['state-of-repair'],
       kicker: issuesDate,
       title: 'The state of the buildings',
       text: [
@@ -224,7 +243,25 @@ export const chapterEight: MapChapter = {
       ...base,
       stat: { value: `${fmt(core(1970))} → ${fmt(core(2023))}`, label: 'privately owned SRO rooms in the downtown core, 1970 and 2023', after: 2500 },
       growth: { from: 2025, to: 2025, buildings: city(() => RED) },
-      context: context(`The two figures are the City's counts of privately owned SRO rooms in the downtown core (Burrard Street to Clark Drive): ${fmt(core(1970))} on 1 January 1970, from Table A1 of the 2009 survey, and ${fmt(core(2023))} in January 2023, from the 2023 survey, which includes rooms owned by Chinese benevolent societies and private rooms run by non-profits. The count falls when rooms close, are converted or demolished, and also when government buys them: rooms in public hands leave it but are still lived in. The red buildings are all of the 2024 survey's list, public and private.`, 'cov-survey-2009'),
+      context: context(`Checked 20 November 2026: the City's surveys refuse automated reading. The 3,305 of 2023 is confirmed secondhand (Storeys; downtowneastside.org); the 13,462 of 1970 was seen only in a search summary of the 2009 survey. The two figures are the City's counts of privately owned SRO rooms in the downtown core (Burrard Street to Clark Drive): ${fmt(core(1970))} on 1 January 1970, from Table A1 of the 2009 survey, and ${fmt(core(2023))} in January 2023, from the 2023 survey, which includes rooms owned by Chinese benevolent societies and private rooms run by non-profits. The count falls when rooms close, are converted or demolished, and also when government buys them: rooms in public hands leave it but are still lived in. The red buildings are all of the 2024 survey's list, public and private.`, 'cov-survey-2009'),
+    },
+    {
+      id: 'hotels-up-close',
+      kicker: `${Math.min(...chosen.map((h) => h.built!))} to ${Math.max(...chosen.map((h) => h.built!))}`,
+      title: `${numberWord} hotels, up close`,
+      text: [
+        `${numberWord} of the boom's hotels can be gone to from here. Each is on the City's heritage register, and each has a photograph from the street to draw its front from.`,
+        'Choose a red hotel on the map, or by name below, to stand in front of it.',
+      ],
+      pickable: boomHotels,
+      view: { ...chosenView, dist: 4200, theta: SOUTH, phi: 0.55 },
+      ...base,
+      legend: [
+        { colour: RED, label: 'A hotel to go to' },
+        { colour: PALE, label: 'The other SRO buildings' },
+      ],
+      growth: { from: 2025, to: 2025, buildings: city((_, h) => (isChosen.has(h.name) ? RED : PALE)) },
+      context: context(`The red hotels are those built by 1914 that are on the Vancouver Heritage Register (matched to the City's open data by address or by footprint, read on ${new Date(`${sroHeritage.retrieved}T12:00:00`).toLocaleDateString('en-CA', { day: 'numeric', month: 'long', year: 'numeric' })}) and have a freely licensed street photograph in which the front can be read; ${Object.keys(hotelPhotos).length - chosen.length} more have a photograph that does not show enough of the front to draw from. The register's classes are the City's: A for primary significance, B for significant, C for contextual or character. A chosen hotel stands alone: the buildings across its streets are taken away so it can be seen from them, and the rest are pale outlines. Its street fronts are drawn in line from its one photograph, counted by eye, as each hotel's own note says, and the photograph is shown beside it. They are not measured drawings, and the photographs are of 2010 to 2026, not of the hotels when built.`, 'cov-heritage-register'),
     },
   ],
 }

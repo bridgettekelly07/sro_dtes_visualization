@@ -16,6 +16,7 @@ import { footprintAt } from './district1912'
 import viaducts1972 from './viaducts1972.json'
 import expoParts from './expoParts.json'
 import expo1986 from './expo1986.json'
+import woodwards2010 from './woodwards2010.json'
 
 /** One piece of a building. Distances are metres; x and y are east and north of the site before the group is turned. */
 export type Part =
@@ -270,6 +271,48 @@ export const guidewayLine: [number, number][] = (() => {
 const guidewayAnchor: [number, number] = [-123.1000, 49.2730]
 /** The guideway: one deck 9 m wide for the two tracks along the line, its underside 7 m up, on piers every 30 m. */
 const guideway = (): Part[] => decksAlong([guidewayLine], guidewayAnchor, 4.5, 1.8, 7, 30, 2)
+
+/**
+ * The "W" over Woodward's: a red letter on a four-legged lattice tower, standing on the roof of the store's
+ * oldest corner. Two models, so the letter can be red and the tower ink.
+ */
+function woodwardsW(): BuildingModel[] {
+  // the higher roof of the kept corner (bldgid 145980 in the City's 2009 footprints)
+  const z0 = Math.max(...(woodwards2010.parts as { h: number; bldg: number }[]).filter((p) => p.bldg === 145980).map((p) => p.h))
+  type V = [number, number, number]
+  // the tower: five rings drawing in as it climbs, its legs, and a brace on every face between rings
+  const tiers = [[3.2, 0], [2.5, 5], [1.9, 10], [1.3, 15], [0.9, 20]]
+  const tv: V[] = tiers.flatMap(([s, z]) => [[-s, -s, z0 + z], [s, -s, z0 + z], [s, s, z0 + z], [-s, s, z0 + z]] as V[])
+  const tl: [number, number][] = []
+  tiers.forEach((_, t) => {
+    for (let c = 0; c < 4; c++) {
+      const a = t * 4 + c, b = t * 4 + ((c + 1) % 4)
+      tl.push([a, b])
+      if (t < tiers.length - 1) tl.push([a, a + 4], [a, b + 4], [b, a + 4])
+    }
+  })
+  // the letter: four slanted strokes, each a slab, standing on the tower's top and facing Hastings Street
+  const top = z0 + 20, H = 5, T = 0.95, D = 0.4
+  const strokes = [[-3.3, H, -1.65, 0], [-1.65, 0, 0, H * 0.7], [0, H * 0.7, 1.65, 0], [1.65, 0, 3.3, H]]
+  const wv: V[] = []
+  const wt: [number, number, number][] = []
+  const wl: [number, number][] = []
+  for (const [xa, za, xb, zb] of strokes) {
+    const o = wv.length
+    for (const y of [-D, D]) wv.push([xa - T / 2, y, top + za], [xa + T / 2, y, top + za], [xb + T / 2, y, top + zb], [xb - T / 2, y, top + zb])
+    wt.push([o, o + 1, o + 2], [o, o + 2, o + 3], [o + 4, o + 5, o + 6], [o + 4, o + 6, o + 7])
+    for (let c = 0; c < 4; c++) {
+      const a = o + c, b = o + ((c + 1) % 4)
+      wt.push([a, b, b + 4], [a, b + 4, a + 4])
+      wl.push([a, b], [a + 4, b + 4], [a, a + 4])
+    }
+  }
+  const evidence = "The W over Woodward's, as a type and not measured: a letter of about 5 m on a lattice tower of about 20 m, on the roof of the store's oldest corner at Hastings and Abbott. The real one turns; this one faces Hastings Street. The W on the block since 2010 is understood to be a replica of the one taken down with the store in 2006, which the sources read do not confirm."
+  return [
+    { id: 'woodwards-w-tower', name: "The W's tower", bearing: 0, basis: 'type', evidence: 'The lattice tower the W stands on, as a type: see the W.', parts: [{ kind: 'solid', x: 0, y: 0, verts: tv, tris: [], lines: tl }] },
+    { id: 'woodwards-w', name: "The W over Woodward's", bearing: 0, basis: 'type', evidence, parts: [{ kind: 'solid', x: 0, y: 0, verts: wv, tris: wt, lines: wl }] },
+  ]
+}
 
 export const models: BuildingModel[] = [
   {
@@ -553,6 +596,7 @@ export const models: BuildingModel[] = [
     evidence: "The elevated stretch of the first line, on OpenHistoricalMap's track dated 11 December 1985, from just east of Stadium station past Main Street station and along Terminal Avenue to the Grandview cut: one deck 9 m wide for the two tracks, 1.8 m deep, its underside kept 7 m above the ground beneath it, on piers every 30 m. Its real height varies along the line and is not traced; which stretches stand on the guideway and which run at grade is read from the line's course, not from a survey.",
     parts: guideway(),
   },
+  ...woodwardsW(),
   {
     id: 'skytrain-car-1985',
     name: 'A SkyTrain',

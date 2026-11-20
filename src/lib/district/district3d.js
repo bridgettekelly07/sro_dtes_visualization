@@ -39,6 +39,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { facadeLines, storeyLines } from "./facade.js";
+import { frontGeometry } from "./hotelFront.js";
 import { curbRuns } from "./curbs.js";
 import { paintCanopyAtlas, CANOPY_SEEDS, FASTIGIATE, drawnHeight } from "./canopy.js";
 import { shadePark, toneOf, prng as parkPrng, PARK, hex as hexRgb, mix as mixRgb } from "./parkShade.js";
@@ -100,14 +101,16 @@ export class District3D {
   // base map: streets filled in white on the bare land: each centreline ([lon, lat] points) as a flat
   // ribbon `widthM` metres wide lying on the ground, with a round pad at each point so the joins and
   // crossings close up. Rebuilt only when given a different list.
-  setStreetFill(lines, widthM = 20) {
+  // The outline is the fill's own edge: a line down each side of every street, drawn at the fill's level so
+  // the fill hides it wherever another street crosses, leaving only the outside edge of the whole.
+  setStreetFill(lines, widthM = 20, style = null) {
     if (!this.ready || !this.proj) return;
     if (this.streetFillOf === lines) return;
     this.streetFillOf = lines;
     this.clear(this.gStreetFill);
     if (!lines || !lines.length) { this.dirty = true; return; }
     if (!this.matStreetFill) this.matStreetFill = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    const u = 1 / this.mPerUnit, hw = (widthM / 2) * u, pos = [], N = 10;
+    const u = 1 / this.mPerUnit, hw = (widthM / 2) * u, pos = [], N = 10, rim = [];
     const Y = (x, z) => this.yAt(x, z) + 0.15 * u;
     lines.forEach((line) => {
       const P = line.map(([lon, lat]) => [this.proj.x(lon), this.proj.y(lat)]);
@@ -120,6 +123,9 @@ export class District3D {
           const x0 = ax + (bx - ax) * k / n, z0 = az + (bz - az) * k / n, x1 = ax + (bx - ax) * (k + 1) / n, z1 = az + (bz - az) * (k + 1) / n;
           const y0 = Y(x0, z0), y1 = Y(x1, z1);
           pos.push(x0 + nx, y0, z0 + nz, x1 + nx, y1, z1 + nz, x1 - nx, y1, z1 - nz, x0 + nx, y0, z0 + nz, x1 - nx, y1, z1 - nz, x0 - nx, y0, z0 - nz);
+          // the edge line: just outside the fill and a hair under it, so only a crossing street's fill hides it
+          const ex = nx * (1 + 0.3 * u / hw), ez = nz * (1 + 0.3 * u / hw), d = 0.04 * u;
+          rim.push(x0 + ex, y0 - d, z0 + ez, x1 + ex, y1 - d, z1 + ez, x0 - ex, y0 - d, z0 - ez, x1 - ex, y1 - d, z1 - ez);
         }
       }
       P.forEach(([x, z]) => {
@@ -133,6 +139,13 @@ export class District3D {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     this.gStreetFill.add(new THREE.Mesh(geo, this.matStreetFill));
+    if (style) {
+      if (this.matStreetRim) this.matStreetRim.dispose();
+      this.matStreetRim = new LineMaterial({ color: style.colour || "#3b3b3b", linewidth: (style.width || 0.5) * 2, transparent: true, opacity: style.opacity == null ? 0.6 : style.opacity });
+      this.matStreetRim.resolution.set(this.wrap.clientWidth || 600, this.wrap.clientHeight || 400);
+      const l = this.fatLines(new Float32Array(rim), this.matStreetRim);
+      if (l) this.gStreetFill.add(l);
+    }
     this.dirty = true;
   }
   // base map: people as dots on the ground, each { lon, lat, r } with r in metres, in a see-through grey.
@@ -434,7 +447,9 @@ export class District3D {
     if (!this.ready || !this.cam) return;
     const from = { ...this.cam };
     const to = { tx: this.proj.x(view.lon), tz: this.proj.y(view.lat), r: view.dist / this.mPerUnit,
-                 theta: view.theta == null ? from.theta : view.theta, phi: view.phi == null ? from.phi : view.phi };
+                 theta: view.theta == null ? from.theta : view.theta, phi: view.phi == null ? from.phi : view.phi, ty: 0 };
+    // base map: `lift` looks at a point that many metres above the ground at the place, for a view from the street
+    if (view.lift) to.ty = this.yAt(to.tx, to.tz) + view.lift / this.mPerUnit;
     if (view.offsetX) {
       // look at a point to the left of the place, along the screen's horizontal, so the place lands right of centre
       const halfWidth = to.r * Math.tan(this.persp.fov * Math.PI / 360) * this.persp.aspect, d = view.offsetX * 2 * halfWidth;
@@ -449,7 +464,7 @@ export class District3D {
     const id = this._fly = (this._fly || 0) + 1, t0 = performance.now();
     const apply = (k) => {
       const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;   // ease in and out
-      for (const key in to) this.cam[key] = from[key] + (to[key] - from[key]) * e;
+      for (const key in to) this.cam[key] = (from[key] || 0) + (to[key] - (from[key] || 0)) * e;
       this.clamp(); this.dirty = true;
     };
     if (!ms) { apply(1); return; }
@@ -1639,6 +1654,8 @@ export class District3D {
     const proj = this.proj, u = 1 / this.mPerUnit, edgeInk = [], edgeFaint = [];
     // base map: a model marked `detail` is drawn with its floors and windows, as the SROs of the main map are
     const detailItems = [];
+    // base map: a model with a `front` has its street fronts drawn from its photograph instead (hotelFront.js)
+    const frontLines = [], frontSkins = [];
     // base map: a model may carry its own fill colour (`fill`, a hex string); the rest are white
     const tris = new Map();
     let tri = [];
@@ -1649,6 +1666,7 @@ export class District3D {
       const edge = m.faint ? edgeFaint : edgeInk;
       const sx = proj.x(m.lon), sz = proj.y(m.lat);
       const cb = Math.cos(m.bearing || 0), sb = Math.sin(m.bearing || 0);
+      const tallest = m.front || m.frame ? Math.max(...m.parts.map((q) => (q.kind === "prism" ? q.h : 0))) : 0;
       m.parts.forEach((p) => {
         if (p.kind === "prism") {
           // base map: a building raised straight up from its real footprint (`ring`, [lon, lat] points) to
@@ -1670,7 +1688,35 @@ export class District3D {
           }
           const ring = pc.ring;
           if (ring.length < 3) return;
+          if (m.frame && p.h === tallest) {
+            // base map: a building going up as a bare frame: a slab at each of `frame` floors, and columns at
+            // its corners and along its edges, with no walls. The column spacing is by rule.
+            const S = m.frame, n = ring.length, Y = (k) => pc.base + (p.h * k / S) * u;
+            for (let k = 1; k <= S; k++) {
+              const y = Y(k), yb = y - 0.3 * u;
+              pc.tris.forEach(([i, j, q]) => tri.push(ring[i][0], y, ring[i][1], ring[j][0], y, ring[j][1], ring[q][0], y, ring[q][1]));
+              for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n, [ax, az] = ring[i], [bx, bz] = ring[j];
+                tri.push(ax, yb, az, bx, yb, bz, bx, y, bz, ax, yb, az, bx, y, bz, ax, y, az);
+                edge.push(ax, y, az, bx, y, bz, ax, yb, az, bx, yb, bz);
+              }
+            }
+            for (let i = 0; i < n; i++) {
+              const j = (i + 1) % n, [ax, az] = ring[i], [bx, bz] = ring[j], len = Math.hypot(bx - ax, bz - az) * this.mPerUnit;
+              const cols = Math.max(1, Math.round(len / 4.5));
+              for (let c = 0; c < cols; c++) { const x = ax + (bx - ax) * c / cols, z = az + (bz - az) * c / cols; edge.push(x, pc.base, z, x, Y(S), z); }
+              edge.push(ax, pc.base, az, bx, pc.base, bz);
+            }
+            return;
+          }
           if (m.detail && !p.follow && !p.z0) detailItems.push({ xz: ring, h: p.h, base: pc.base, narrow: true, shop: true });
+          if (m.front && p.h === tallest) {
+            const g = frontGeometry({ xz: ring, h: p.h, base: pc.base, front: m.front, ground: (x, z) => this.yAt(x, z) + 0.2 * u }, this.mPerUnit);
+            for (const v of g.tris) tri.push(v);
+            for (const v of g.edges) edge.push(v);
+            for (const v of g.lines) frontLines.push(v);
+            if (m.front.photoUrl) for (const sk of g.skins) frontSkins.push({ ...sk, url: m.front.photoUrl });
+          }
           // base map: a footprint marked `piles` that stands over the water is held at the model's floor
           // (minBase), with a post down to the water at each corner
           let mx = 0, mz = 0;
@@ -1752,6 +1798,26 @@ export class District3D {
     if (l) this.gModels.add(l);
     const lf = this.fatLines(new Float32Array(edgeFaint), this.matModelEdgeFaint);
     if (lf) this.gModels.add(lf);
+    // base map: a hotel's photograph laid on its front, squared up to the wall (hotelFront.js)
+    this.skinTex = this.skinTex || new Map();
+    frontSkins.forEach((sk) => {
+      let mat = this.skinTex.get(sk.url);
+      if (!mat) {
+        let tex;
+        tex = new THREE.TextureLoader().load(sk.url, () => { this.dirty = true; });
+        tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+        mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+        this.skinTex.set(sk.url, mat);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(sk.pos, 3));
+      geo.setAttribute("uv", new THREE.Float32BufferAttribute(sk.uv, 2));
+      this.gModels.add(new THREE.Mesh(geo, mat));
+    });
+    if (frontLines.length) {
+      const win = this.fatLines(new Float32Array(frontLines), this.matWin);
+      if (win) this.gModels.add(win);
+    }
     if (detailItems.length) {
       const win = this.fatLines(facadeLines(detailItems, this.mPerUnit), this.matWin);
       if (win) this.gModels.add(win);
@@ -1779,9 +1845,10 @@ export class District3D {
       const x = proj.x(site.lon), z = proj.y(site.lat), y = this.yAt(x, z) + lift;
       if (site.stem != null) {
         // base map: no ring; a dotted stem from the roof (`stem` metres up) to the name
-        const top = y + site.stem * u;
-        stems.push(x, top, z, x, top + STEM * 0.9, z);
-        this.markTops.push({ x, y: top + STEM * 0.9, z, label: site.label });
+        // base map: `rise` is how far the stem runs above that, in metres, for a view from close by; 50 m if left out
+        const top = y + site.stem * u, up = site.rise != null ? site.rise * u : STEM * 0.9;
+        stems.push(x, top, z, x, top + up, z);
+        this.markTops.push({ x, y: top + up, z, label: site.label });
         return;
       }
       const R = (site.ring != null ? site.ring : 22) * u;   // base map: a site may ask for a wider ring
@@ -1857,8 +1924,9 @@ export class District3D {
     const c = this.cam;
     this.edgeScale();
     const sp = Math.max(0.12, Math.min(1.5, c.phi));
-    this.camera.position.set(c.tx + c.r * Math.sin(sp) * Math.cos(c.theta), c.r * Math.cos(sp), c.tz + c.r * Math.sin(sp) * Math.sin(c.theta));
-    this.camera.lookAt(c.tx, 0, c.tz);
+    const ty = c.ty || 0;
+    this.camera.position.set(c.tx + c.r * Math.sin(sp) * Math.cos(c.theta), ty + c.r * Math.cos(sp), c.tz + c.r * Math.sin(sp) * Math.sin(c.theta));
+    this.camera.lookAt(c.tx, ty, c.tz);
     this.camera.updateMatrixWorld();
   }
   clamp() {
@@ -1917,6 +1985,7 @@ export class District3D {
     this.matEdge.resolution.set(w, h); this.matEdgeSro.resolution.set(w, h); this.matWin.resolution.set(w, h); this.matCurb.resolution.set(w, h); this.matRailPen.resolution.set(w, h);
     this.matMark.resolution.set(w, h); this.matMarkPath.resolution.set(w, h); this.matMarkLine.resolution.set(w, h); this.matModelEdge.resolution.set(w, h); this.matModelEdgeFaint.resolution.set(w, h); this.matMarkStem.resolution.set(w, h); this.matMarkAccent.resolution.set(w, h); this.matMarkDot.resolution.set(w, h);
     if (this.gFine) this.gFine.children.forEach((o) => o.material && o.material.resolution && o.material.resolution.set(w, h));
+    if (this.matStreetRim) this.matStreetRim.resolution.set(w, h);
     this.persp.aspect = w / h;
     this.persp.updateProjectionMatrix();
     this.dirty = true;

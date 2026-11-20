@@ -9,6 +9,7 @@
  * the 1960s cleared, the houses that went are stood in for by Goad's 1912 atlas, until they go.
  */
 import { type GrowthBuilding, type MapChapter } from './stops'
+import { hotelStories } from './hotelStories'
 import { districtTo, inRing } from './district1912'
 import { models as buildingModels } from './models'
 import streets1887 from './streets1887.json'
@@ -155,6 +156,7 @@ export const chapterFour: MapChapter = {
   stops: [
     {
       id: 'skid-road',
+      sideStories: hotelStories['skid-road'],
       kicker: '1950s',
       title: 'The centre moves west',
       text: [
@@ -302,6 +304,7 @@ export const chapterFour: MapChapter = {
     },
     {
       id: 'viaducts',
+      sideStories: hotelStories.viaducts,
       kicker: '1967 to 1972',
       title: 'The viaducts',
       text: [

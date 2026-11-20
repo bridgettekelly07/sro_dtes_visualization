@@ -6,7 +6,9 @@
  * scripts/build-sro-years.py). They are the survivors: hotels of the same years that have since been
  * demolished are not drawn.
  */
-import { type GrowthBuilding, type MapChapter } from './stops'
+import { type GrowthBuilding, type MapChapter, townBlocks } from './stops'
+import { hotelStories } from './hotelStories'
+import { woodenHotel } from './woodenHotel'
 import { cprLine1912 } from './cpr1912'
 import streets1887 from './streets1887.json'
 import parcelsHastings from './parcelsHastings.json'
@@ -16,6 +18,8 @@ import { models as buildingModels } from './models'
 import { district, districtTo, footprintAt, inRing } from './district1912'
 import sroGround from './sroGround.json'
 import { chapterTwoPhotos } from './chapterTwoPhotos'
+import { pickOf } from './hotelPicks'
+import { datedFootprints } from './chapterFive'
 import flats1917 from './flats1917.json'
 
 const SOUTH = Math.PI / 2
@@ -79,6 +83,33 @@ const cprLine = cprLine1912
 
 const SHORE_1912 = `The shoreline is the one Goad's 1912 atlas draws, read from its wash of blue along the water: the 1880s shore with the Canadian Pacific's yard filled out west of Carrall, and wharves and piers built out on piles. Where the atlas draws a building on what had been water, the ground under it is counted as filled: the strip under the railway along the waterfront, and the edge of False Creek around Carrall and Columbia. That edge is drawn round the buildings, so it is approximate.`
 
+// What stands within a few blocks of the Europe in a given year: today's footprints dated by the property
+// records, less the hotel's own. Survivors only: what has been demolished since is not in the data.
+const europeAround = (() => {
+  const e = pickOf('EUROPE HOTEL')
+  const kx = 111_320 * Math.cos((e.lat * Math.PI) / 180)
+  const near = datedFootprints
+    .map((b) => ({ ...b, lon: b.ring.reduce((a, q) => a + q[0], 0) / b.ring.length, lat: b.ring.reduce((a, q) => a + q[1], 0) / b.ring.length }))
+    .filter((b) => Math.hypot((b.lon - e.lon) * kx, (b.lat - e.lat) * 111_200) < 420 && !e.parts.some((p) => inRing(b.lon, b.lat, p.ring)))
+  return (year: number): GrowthBuilding[] =>
+    near.filter((b) => b.built <= year).map((b) => ({ name: '', built: b.built, lon: b.lon, lat: b.lat, parts: [{ kind: 'prism' as const, x: 0, y: 0, ring: b.ring, h: b.h }] }))
+})()
+
+// The Europe year by year, as the written record has it. Until 1908 a wooden hotel stands on the lot beside
+// the flatiron's: the building Calori bought after the fire, drawn as a type. In 1908 the flatiron is a bare
+// concrete frame; from 1909 it stands whole. The fire's ground is shown burned in 1886.
+const europeStage = (() => {
+  const e = pickOf('EUROPE HOTEL')
+  const tall = Math.max(...e.parts.map((p) => p.h))
+  const lot = e.parts.find((p) => p.h !== tall) ?? e.parts[0]
+  const at = { lon: lot.ring.reduce((a, q) => a + q[0], 0) / lot.ring.length, lat: Math.min(...lot.ring.map((q) => q[1])) + 0.00009 }
+  const wooden = { ...at, bearing: 0, minBase: 0, fill: '#ffffff', parts: [woodenHotel()] }
+  return (year: number) =>
+    year < 1908 ? { built: 'plot' as const, lower: false, extras: [wooden], burn: year === 1886 ? townBlocks : undefined, from: 150, subject: { ...at, size: 16, tall: 9 } }
+    : year === 1908 ? { built: { frame: 6 }, lower: true }
+    : { built: 'whole' as const, lower: true }
+})()
+
 export const chapterTwo: MapChapter = {
   chapterId: 'hotel-boom',
   title: 'The hotel boom',
@@ -130,6 +161,7 @@ export const chapterTwo: MapChapter = {
   stops: [
     {
       id: 'hastings',
+      sideStories: hotelStories.hastings,
       kicker: '1890s to 1903',
       title: 'Hastings becomes the centre',
       text: [
@@ -166,6 +198,7 @@ export const chapterTwo: MapChapter = {
     },
     {
       id: 'hotels',
+      sideStories: hotelStories.hotels,
       kicker: '1900 to 1914',
       title: 'The hotels go up',
       text: [
@@ -198,6 +231,60 @@ export const chapterTwo: MapChapter = {
         'Vancouver is the end of the line: passengers come off the Canadian Pacific\'s trains and the steamships from Asia. Hundreds of hotels and rooming houses go up within walking distance of the piers to put them up.',
         'In the years that follow, it is loggers, miners and seamen, working away and coming back between jobs, who make them home.',
       ],
+      // one of those hotels, followed through its own history
+      sideStory: {
+        label: 'Follow one hotel: the Europe',
+        pick: pickOf('EUROPE HOTEL'),
+        span: [1886, 2024],
+        stage: europeStage,
+        around: europeAround,
+        steps: [
+          {
+            year: 1886,
+            kicker: '1886',
+            title: 'The one that did not burn',
+            scene: { name: 'European Hotel' },
+            text: ['Angelo Calori buys the one wooden building left standing by the fire of June 1886 and makes it the European Hotel. By about 1891 it is the Hotel Europe.'],
+            sourceId: 'dcb-calori',
+          },
+          {
+            year: 1908,
+            kicker: '1908 to 1909',
+            title: 'A flatiron in concrete',
+            scene: { name: 'Hotel Europe' },
+            text: [
+              'In the boom Calori has the architects Parr and Fee add a new hotel on the narrow triangle of lots beside the old one, where Powell and Alexander streets meet. Six storeys, faced in brick, it is built by Hemphill Brothers on a reinforced-concrete frame by the Ferro-Concrete Construction Company of Cincinnati.',
+              'The frame is the first of its kind in Vancouver. It is said to have made this the earliest fireproof hotel in western Canada.',
+            ],
+            sourceId: 'vhf-europe',
+          },
+          {
+            year: 1909,
+            kicker: '1909',
+            title: 'A lobby in tile, marble and brass',
+            text: ['The heritage register lists what makes the building what it is: its flatiron shape, its brick face, and a lobby finished in faience, tile, marble and brass.'],
+            sourceId: 'crhp-europe',
+          },
+          {
+            year: 1983,
+            kicker: '1983',
+            title: 'From hotel to housing',
+            text: ['The hotel and its annex are restored and converted to affordable housing by Adolph Ingre and Associates.'],
+            sourceId: 'vhf-europe',
+          },
+          {
+            year: 2003,
+            kicker: '2003 to 2024',
+            title: 'Designated, and still lived in',
+            text: [
+              'The City designates the building as heritage on 14 January 2003.',
+              "The 2024 SRO Tenant Survey lists it with 84 rooms, owned by government and run by a non-profit as non-market housing: one of the boom's hotels still housing people more than a century on.",
+            ],
+            sourceId: 'crhp-europe',
+          },
+        ],
+        note: "Drag the year to move through the building's life. What is drawn interprets the written record. Until 1908 a wooden hotel stands beside the flatiron's plot: it is a frame hotel of the 1880s drawn as a type (gable to the street behind a false front, a porch, clapboards), since no picture of Calori's building is in the project, and it is placed on the lot next door because the sources put the new hotel beside the old. In 1886 the ground of the old townsite is shown burned, as on the fire's own card. In 1908 the flatiron is a bare frame of six floors, for the reinforced concrete the sources describe; its columns are spaced by rule. From 1909 it stands whole, its point rounded as in the photograph. The lower block beside it is drawn from 1908 only because the wooden hotel is drawn until then: neither the year the wooden hotel went nor the block's own date is known. Around it are today's buildings that the property records say were standing by the year chosen: the ones since demolished are missing, so the early years look emptier than they were. The photograph beside the map is of 2019. Each step is from the page named under it; the 2024 figures are the survey's list. Nothing here covers the years between 1909 and 1983: who stayed, who owned it after Calori, and how it came to need restoring are not on the pages read. The Dictionary of Canadian Biography calls the 1908 addition four storeys; the register and the building say six.",
+      },
       // framed from the station and pier in the west to the hotels east of Main
       view: { lon: -123.1065, lat: 49.2852, dist: 2300, theta: SOUTH, phi: 0.8 },
       // the station and the pier named on stems; the terminals dark, the hotels red
@@ -225,6 +312,7 @@ export const chapterTwo: MapChapter = {
     },
     {
       id: 'interurban',
+      sideStories: hotelStories.interurban,
       kicker: '1911',
       title: 'The interurban terminal',
       text: [

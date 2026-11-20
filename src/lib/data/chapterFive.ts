@@ -7,6 +7,7 @@
  * the lots where no survivor stands.
  */
 import { type GrowthBuilding, type MapChapter } from './stops'
+import { hotelStories } from './hotelStories'
 import { districtTo, inRing } from './district1912'
 import { models as buildingModels, guidewayLine } from './models'
 import streets1887 from './streets1887.json'
@@ -256,7 +257,7 @@ export const chapterFive: MapChapter = {
         streets,
         streetFill,
         streetStyle,
-        note: `What the by-law asked of each hotel in detail is not in the sources the project has; the City's 2007 report describes it as upgrading hotels under the Fire By-law, beginning in mid-1974 with Downtown Eastside buildings of more than twenty rooms. The red buildings are today's SRO hotels of more than twenty rooms standing by 1974, the ones the enforcement reached first, turning red outward from Main and Hastings; the smaller ones are white. Room counts are today's, from the 2024 SRO Tenant Survey. The fire most often named as the spur is the Commercial Hotel's on Cambie Street, on 21 October 1973, in which five people died; that is from a local history page, not yet confirmed in a record, and is not drawn. A 2023 journal article (Masuda and others, Abandoning the SRO) finds in the City Archives that a crackdown under the Lodging House By-law shut fifteen flophouses in February 1972 and that 400 units were lost that year; the buildings are not named there. The dark buildings that then come down stand for the hotels that closed, converted or were demolished: the project has no list of them, so they are 46 of the larger brick buildings of the faint 1912 backdrop in the hotel blocks, picked at random, one for about fifty of the 2,300 units. Their places are illustrative, not the hotels that were lost. The 2,300 is a 1977 City Planning estimate for the downtown peninsula and Strathcona, not counted building by building. That fires drove the residents' pressure is the account of the movement's own advocates; the project has not traced a source for particular fires. ${CITY} ${SHORE}`,
+        note: `Checked 20 November 2026: the figure of about 2,300 units could not be checked: the City's 2007 survey refuses automated reading, and no other page read gives it. What the by-law asked of each hotel in detail is not in the sources the project has; the City's 2007 report describes it as upgrading hotels under the Fire By-law, beginning in mid-1974 with Downtown Eastside buildings of more than twenty rooms. The red buildings are today's SRO hotels of more than twenty rooms standing by 1974, the ones the enforcement reached first, turning red outward from Main and Hastings; the smaller ones are white. Room counts are today's, from the 2024 SRO Tenant Survey. The fire most often named as the spur is the Commercial Hotel's on Cambie Street, on 21 October 1973, in which five people died; that is from a local history page, not yet confirmed in a record, and is not drawn. A 2023 journal article (Masuda and others, Abandoning the SRO) finds in the City Archives that a crackdown under the Lodging House By-law shut fifteen flophouses in February 1972 and that 400 units were lost that year; the buildings are not named there. The dark buildings that then come down stand for the hotels that closed, converted or were demolished: the project has no list of them, so they are 46 of the larger brick buildings of the faint 1912 backdrop in the hotel blocks, picked at random, one for about fifty of the 2,300 units. Their places are illustrative, not the hotels that were lost. The 2,300 is a 1977 City Planning estimate for the downtown peninsula and Strathcona, not counted building by building. That fires drove the residents' pressure is the account of the movement's own advocates; the project has not traced a source for particular fires. ${CITY} ${SHORE}`,
         sourceId: 'cov-survey-2007',
       },
       eventId: 'fire-bylaw-enforcement',
@@ -300,7 +301,7 @@ export const chapterFive: MapChapter = {
       view: { lon: -123.1060, lat: 49.2790, dist: 2800, theta: SOUTH, phi: 0.75 },
       sites: ['waterfront-station', 'main-station'],
       routes: ['cpr-main-5', ...skytrainIds],
-      land: 'today',
+            land: 'today',
       bridges: true,
       edges,
       models: [['expo-grounds', 'bc-place-1986'], ['viaducts', 'viaducts-1972']],
@@ -320,6 +321,7 @@ export const chapterFive: MapChapter = {
     },
     {
       id: 'expo',
+      sideStories: hotelStories.expo,
       kicker: '2 May to 13 October 1986',
       title: 'A world\'s fair',
       text: [
@@ -329,6 +331,7 @@ export const chapterFive: MapChapter = {
       view: { lon: -123.1070, lat: 49.2790, dist: 2900, theta: SOUTH, phi: 0.74 },
       sites: ['expo-grounds', 'canada-pavilion'],
       routes: ['cpr-main-5', ...skytrainIds.map((id) => id), ...moverIds],
+      railLaid: true,
       land: 'today',
       bridges: true,
       edges,
@@ -348,6 +351,7 @@ export const chapterFive: MapChapter = {
     },
     {
       id: 'evictions',
+      sideStories: hotelStories.evictions,
       kicker: 'February and March 1986',
       title: 'Evicted for the fair',
       text: [
@@ -358,6 +362,7 @@ export const chapterFive: MapChapter = {
       view: { lon: -123.1010, lat: 49.2795, dist: 2300, theta: SOUTH, phi: 0.77 },
       sites: ['patricia'],
       routes: ['cpr-main-5', ...skytrainIds],
+      railLaid: true,
       land: 'today',
       bridges: true,
       edges,
@@ -374,7 +379,7 @@ export const chapterFive: MapChapter = {
         streets,
         streetFill,
         streetStyle,
-        note: `Each dark figure walking out, drawn far larger than life, stands for about five of the 700 to 1,000 residents evicted, Olds's estimate (1989) as the City's 2007 report gives it. The three dark hotels are those the reports of the time name as putting tenants out: the Patricia, where the Pacific Tribune of 5 March 1986 counts 60 residents forced out on a week's notice and the Globe and Mail about 50, and the Metropole and the Dominion, named in the Tribune. The Regal Place on West Hastings, where about 50 had until 19 March, is not in today's list and is not drawn. The residents' association counted about 30 hotels renovating and a tenants' group listed more than 40 buildings; those are not named in what has been read, so the other figures leave today's SRO hotels in proportion to their rooms, with more from the three named. Where the tenants went is not recorded here. Olaf Solheim's death is as Canada's History tells it; accounts differ on how much notice he had. The estimates differ too: up to 1,000 by the residents' association's survey, about 600 by May by Jim Green's count, 500 to 600 in one later account; the City's report says the number of rooms converted could not be established. ${OHM} ${BRIDGES86} Today's SRO hotels standing by 1986 are red. ${CITY} ${SHORE}`,
+        note: `Checked 20 November 2026: the 700 to 1,000 evictions, the fifty or sixty at the Patricia and Olaf Solheim's death are from Olds's 1998 article, which has no open copy; no openly readable page was found that gives the numbers, so they stand on the article unread here. Each dark figure walking out, drawn far larger than life, stands for about five of the 700 to 1,000 residents evicted, Olds's estimate (1989) as the City's 2007 report gives it. The three dark hotels are those the reports of the time name as putting tenants out: the Patricia, where the Pacific Tribune of 5 March 1986 counts 60 residents forced out on a week's notice and the Globe and Mail about 50, and the Metropole and the Dominion, named in the Tribune. The Regal Place on West Hastings, where about 50 had until 19 March, is not in today's list and is not drawn. The residents' association counted about 30 hotels renovating and a tenants' group listed more than 40 buildings; those are not named in what has been read, so the other figures leave today's SRO hotels in proportion to their rooms, with more from the three named. Where the tenants went is not recorded here. Olaf Solheim's death is as Canada's History tells it; accounts differ on how much notice he had. The estimates differ too: up to 1,000 by the residents' association's survey, about 600 by May by Jim Green's count, 500 to 600 in one later account; the City's report says the number of rooms converted could not be established. ${OHM} ${BRIDGES86} Today's SRO hotels standing by 1986 are red. ${CITY} ${SHORE}`,
         sourceId: 'olds-expo',
       },
       eventId: 'expo-evictions',

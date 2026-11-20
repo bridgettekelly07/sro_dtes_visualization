@@ -103,6 +103,8 @@ export interface Stop {
   land?: LandTime
   /** Model the False Creek bridges (Granville, Burrard, Cambie) on the bare land, from today's centrelines. */
   bridges?: boolean
+  /** The card's railways and transit lines are already built: shown whole, not laid again as the card arrives. */
+  railLaid?: boolean
   /** Hold back the annotation's subheadings and leaders until the buildings in `rises` are up. */
   labelsAfterRise?: boolean
   /** Buildings standing as the stop opens that a burn takes down as it reaches them, as in `models`. */
@@ -147,6 +149,10 @@ export interface Stop {
    * draws it with its floors and windows, and shows what is recorded about it.
    */
   pickable?: Pickable[]
+  /** One building's history, followed from this card. */
+  sideStory?: SideStory
+  /** Or more than one, each with its own button. */
+  sideStories?: SideStory[]
   /** A key to the card's building colours, shown in a corner of the map. */
   legend?: { colour: string; label: string }[]
   /** People gathered in a place, as the see-through dots, shown `after` ms once the camera has settled. */
@@ -347,7 +353,7 @@ const granvilleStreetEdges = streets1887.edges.filter((line) =>
  * shore to Hastings, which the August 1885 map shows built on. The fire went further; no
  * source gives its edge, so only this part is hatched.
  */
-const townBlocks: [number, number][] = [
+export const townBlocks: [number, number][] = [
   [-123.10958, 49.28447], [-123.10426, 49.2835], [-123.10435, 49.28147], [-123.10955, 49.28251],
 ]
 
@@ -737,4 +743,76 @@ export interface Pickable {
   note?: string
   /** A photograph of the building from the street, where one is found. */
   photo?: Photo
+  /** The building's street fronts as read from its photograph, drawn on the model in place of the rule. */
+  front?: Front
+}
+
+/** One street front: the compass bearing it looks toward, and its window bays counted from the photograph. */
+export interface FrontFace {
+  toward: number
+  bays: number
+  /** Each bay's upper windows: one, a pair, three, one wide, one round-headed, or a projecting bay window; `bow` rounds the whole front out in a half-circle, as the point of a flatiron. */
+  kind: 'flat' | 'pair' | 'triple' | 'wide' | 'arched' | 'oriel' | 'bow'
+  /** Brick piers between the bays, from the shopfront to the cornice. */
+  piers?: boolean
+  /** A tall arch round each bay, from the first floor to below the top storey. */
+  giant?: boolean
+  /**
+   * The hotel's photograph laid on this front in place of drawn windows. `quad` is the front's four corners
+   * in the photograph, as shares of its width and height from the top left: bottom left, bottom right, top
+   * right, top left, as seen from the street. The photograph is squared up to the wall through them, so it
+   * sits on the model in the model's own perspective. `band` is the part of the wall's height the
+   * photograph shows (0 the pavement, 1 the top), when it does not show all of it.
+   */
+  photo?: { quad: [number, number][]; band?: [number, number] }
+}
+export interface Front {
+  /** Storeys, counting the ground floor. */
+  storeys: number
+  faces: FrontFace[]
+  cornice?: 'heavy' | 'light'
+  /** A turret with a pointed roof on the corner between two fronts. */
+  turret?: boolean
+  /** Where the photograph laid on the fronts is fetched from; set when the model is sent to the map. */
+  photoUrl?: string
+}
+
+/**
+ * What a step of a side story puts on the map, so the history is seen where it happened: the name over the
+ * door that year (it stays until a later step changes it), other places named, each on a stem; a path
+ * walked from one place to another, as a red dashed line; figures walking away from the building, for
+ * people put out (they stand for people, they are not a count); and the building's ground burned.
+ */
+export interface StoryScene {
+  name?: string
+  places?: { label: string; lon: number; lat: number; stem?: number }[]
+  path?: [number, number][]
+  leaving?: number
+  burn?: boolean
+}
+
+/** A building's own short history, told from a card: the map goes to the building and steps through it. */
+export interface SideStory {
+  /** The button on the card. */
+  label: string
+  pick: Pickable
+  /** The years the slider runs between. */
+  span: [number, number]
+  /** Each step is told from its `year` until the next step's. */
+  steps: { year: number; kicker: string; title: string; text: string[]; sourceId?: string; scene?: StoryScene }[]
+  /** The years over which the building goes up: before them only its plot is drawn, after them it stands whole. */
+  rise?: [number, number]
+  /** The year of the photograph on its front: laid on the model only from then, the front drawn in line before. */
+  photoFrom?: number
+  /**
+   * How the scene is drawn in a given year, read from the written record: how much of the building is up
+   * (`plot` only its plot, `frame` its bare structural frame of that many storeys, `whole` as it stands),
+   * whether the lower parts of its footprint are standing, other things to draw (a building that stood
+   * there before), and ground to show as burned.
+   */
+  stage?: (year: number) => { built: 'plot' | 'whole' | { frame: number }; lower?: boolean; extras?: object[]; burn?: [number, number][]; /** The compass bearing to stand at for this year, when not in front of the building. */ from?: number; /** What to frame instead of the building: its place, its size across and its height, in metres. */ subject?: { lon: number; lat: number; size: number; tall: number } }
+  /** What stands around the building in a given year. */
+  around?: (year: number) => GrowthBuilding[]
+  /** What the steps rest on and leave out, shown small under them. */
+  note?: string
 }
